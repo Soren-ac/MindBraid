@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/readme/obmind-logo.svg" width="96" alt="ObMind 标志">
+  <img src="assets/readme/obmind-logo.svg" width="96" alt="Branchory 标志">
 </p>
 
-<h1 align="center">ObMind</h1>
+<h1 align="center">Branchory</h1>
 
 <p align="center"><strong>在 Obsidian 中，把现有 Markdown 的结构变成可交互的思维导图。</strong></p>
 
@@ -12,8 +12,8 @@
   <a href="https://github.com/Soren-ac/obmind/releases">发布版本</a>
 </p>
 
-ObMind 是一个仅面向桌面端的 Obsidian 插件。它帮助你从视觉上查看、
-整理和重构正在编写的笔记。Markdown 始终是唯一的内容源；ObMind 提供一个
+Branchory 是一个仅面向桌面端的 Obsidian 插件。它帮助你从视觉上查看、
+整理和重构正在编写的笔记。Markdown 始终是唯一的内容源；Branchory 提供一个
 专注的可视化工作区，不会把笔记发送到任何地方。
 
 ## 产品展示
@@ -22,21 +22,21 @@ ObMind 是一个仅面向桌面端的 Obsidian 插件。它帮助你从视觉上
 
 同一份由 Markdown 驱动的结构和交互，可以切换为铅笔手绘等不同视觉样式。
 
-![在 ObMind 侧栏中独立选择样式和配色](assets/readme/showcase-appearance-panel.png)
+![在 Branchory 侧栏中独立选择样式和配色](assets/readme/showcase-appearance-panel.png)
 
 样式负责节点形态与视觉处理，配色只改变颜色；两者可在侧栏中独立组合。
 
-![ObMind 节点菜单、折叠分支与外观设置](assets/readme/showcase-topic-menu.png)
+![Branchory 节点菜单、折叠分支与外观设置](assets/readme/showcase-topic-menu.png)
 
 节点操作紧贴画布；分支收起后仍会显示隐藏后代数量，避免看不出结构是否被折叠。
 
-![在 Obsidian 中以 ObMind 思维导图展示 Markdown 笔记](assets/readme/hero-light.png)
+![在 Obsidian 中以 Branchory 思维导图展示 Markdown 笔记](assets/readme/hero-light.png)
 
-## 为什么使用 ObMind
+## 为什么使用 Branchory
 
 ### Markdown 原生
 
-为当前笔记打开思维导图后，ObMind 会将 ATX 标题和嵌套的有序、无序列表
+为当前笔记打开思维导图后，Branchory 会将 ATX 标题和嵌套的有序、无序列表
 转换为节点。导图会跟随当前活动的 Markdown 文件，并在你写作时自动刷新，
 因此不需要维护第二份文档。
 
@@ -57,16 +57,16 @@ ObMind 是一个仅面向桌面端的 Obsidian 插件。它帮助你从视觉上
 
 ### 让导图符合你的表达
 
-布局和外观彼此独立。ObMind 内置平衡式与单侧式布局、四个方向，以及独立的
+布局和外观彼此独立。Branchory 内置平衡式与单侧式布局、四个方向，以及独立的
 样式和配色选择器。Colorful、Pencil、Cloud 样式可自由搭配内置配色；还可以
 调整全局字体、连接线粗细和连接线轮廓。需要更多结构时，可为节点设置格式、
 图标、标记、标签、边界、摘要和关系线。
 
-![ObMind 侧边栏中独立的样式和配色控件](assets/readme/style-and-palette.png)
+![Branchory 侧边栏中独立的样式和配色控件](assets/readme/style-and-palette.png)
 
 ### 你的笔记始终由你掌控
 
-- ObMind 只解析当前需要显示的笔记，不会扫描整个 Vault。
+- Branchory 只解析当前需要显示的笔记，不会扫描整个 Vault。
 - 不访问网络，也不包含遥测。
 - 修改外观、布局、折叠状态、视口或其他导图展示选项时，只写入插件数据，
   不会在 Markdown 中插入隐藏元数据。
@@ -86,13 +86,13 @@ ObMind 是一个仅面向桌面端的 Obsidian 插件。它帮助你从视觉上
 再明确确认创建一份新的 Markdown 笔记。也可将当前快照导出为 SVG、PNG、JPG
 或 PDF。导入不会覆盖已有笔记；导出不会修改 Markdown、当前导图或其状态。
 
-**融入 Obsidian**：ObMind 可跟随 Obsidian 的外观，也可以只在思维导图视图内
+**融入 Obsidian**：Branchory 可跟随 Obsidian 的外观，也可以只在思维导图视图内
 强制使用浅色或深色外观。界面提供简体中文和 English；首次安装默认使用简体
 中文。
 
 ## 安装
 
-ObMind 需要桌面端 Obsidian `1.7.2` 或更高版本。移动端尚未适配或测试。
+Branchory 需要桌面端 Obsidian `1.7.2` 或更高版本。移动端尚未适配或测试。
 
 ### 从发布版本手动安装
 
@@ -100,20 +100,20 @@ ObMind 需要桌面端 Obsidian `1.7.2` 或更高版本。移动端尚未适配�
    `main.js`、`manifest.json` 和 `styles.css`。
 2. 创建目录 `<你的 Vault>/.obsidian/plugins/obmind/`。
 3. 将这三个文件都放入该目录。
-4. 重新加载 Obsidian，然后在 **设置 → 第三方插件** 中启用 **ObMind**。
+4. 重新加载 Obsidian，然后在 **设置 → 第三方插件** 中启用 **Branchory**。
 
-ObMind 上架 Obsidian Community Plugins 后，也可以直接在应用内的第三方插件
+Branchory 上架 Obsidian Community Plugins 后，也可以直接在应用内的第三方插件
 浏览器中安装。
 
 ## 开始使用
 
 1. 打开任意 Markdown 笔记。
-2. 点击左侧 Ribbon 中的 ObMind 按钮，或者从命令面板运行
-   **ObMind: 为当前笔记打开思维导图**。
-3. 当前笔记会在新的 ObMind 标签中打开。拖动空白画布以平移，滚动鼠标滚轮以
+2. 点击左侧 Ribbon 中的 Branchory 按钮，或者从命令面板运行
+   **Branchory: 为当前笔记打开思维导图**。
+3. 当前笔记会在新的 Branchory 标签中打开。拖动空白画布以平移，滚动鼠标滚轮以
    缩放，并通过工具栏使用适应视图、布局、搜索等功能。
 
-所有已打开的 ObMind 标签都会跟随当前活动的 Markdown 文件。非 Markdown
+所有已打开的 Branchory 标签都会跟随当前活动的 Markdown 文件。非 Markdown
 文件会显示说明状态，而不会被强行解析。
 
 ## 支持的 Markdown
@@ -131,7 +131,7 @@ frontmatter、普通正文、引用块、围栏或缩进代码，以及当前不
 
 ## 当前限制
 
-- ObMind 仅适用于桌面端，尚未提供面向移动端的思维导图体验。
+- Branchory 仅适用于桌面端，尚未提供面向移动端的思维导图体验。
 - 它实现的是实用的 Markdown 子集，而非完整 CommonMark：Setext 标题、复杂的
   列表续行、惰性引用和 HTML 块语义不会转换为节点。
 - 节点内编辑会保守地处理行内 Markdown：只有在源码映射明确时保留受支持的行内
@@ -140,19 +140,19 @@ frontmatter、普通正文、引用块、围栏或缩进代码，以及当前不
 
 ## 隐私与内容修改边界
 
-ObMind 以本地优先方式工作：不会上传笔记、请求网络资源或收集遥测数据。它不
+Branchory 以本地优先方式工作：不会上传笔记、请求网络资源或收集遥测数据。它不
 扫描整个 Vault，只处理当前笔记。
 
-视觉选项会以 ObMind 插件数据保存，不会写入 Markdown。相对地，明确提交的
+视觉选项会以 Branchory 插件数据保存，不会写入 Markdown。相对地，明确提交的
 节点编辑、新建、结构拖放、任务切换和受支持的节点命令会有意更新源笔记。每次
-写入前，ObMind 都会校验当前源码映射，避免应用过期操作。编辑根节点会通过
+写入前，Branchory 都会校验当前源码映射，避免应用过期操作。编辑根节点会通过
 Obsidian 重命名 Markdown 文件；Obsidian 是否同步更新指向该文件的链接，取决
 于你的链接更新设置。
 
 ## 获取帮助与参与贡献
 
 请在 [Issue 区](https://github.com/Soren-ac/obmind/issues) 提交可复现的问题。
-建议附上 ObMind 和 Obsidian 版本、操作系统、最小 Markdown 示例以及最短复现
+建议附上 Branchory 和 Obsidian 版本、操作系统、最小 Markdown 示例以及最短复现
 步骤。请不要附上与问题无关的私有 Vault 内容。
 
 实现细节和可替换前端的扩展约定请见
@@ -161,5 +161,5 @@ Obsidian 重命名 Markdown 文件；Obsidian 是否同步更新指向该文件�
 
 ## 许可证
 
-ObMind 采用 [MIT License](LICENSE)。打包使用的开源软件声明见
+Branchory 采用 [MIT License](LICENSE)。打包使用的开源软件声明见
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

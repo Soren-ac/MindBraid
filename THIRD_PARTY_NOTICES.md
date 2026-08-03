@@ -1,6 +1,6 @@
 # Third-party notices
 
-ObMind bundles the following third-party software in `main.js`. The same
+Branchory bundles the following third-party software in `main.js`. The same
 notices are embedded in the release bundle so they accompany the installable
 plugin artifact.
 

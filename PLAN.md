@@ -1657,3 +1657,25 @@ logic already aligned with the existing parser and mutation planners.
   release workflows are optional and are deferred until the repository token
   is deliberately granted workflow-management scope; the first release uses a
   checked manual GitHub release to avoid broadening credentials unnecessarily.
+
+## Community directory trademark correction (2026-08-03)
+
+- The initial automated review rejected the display name `ObMind` because it
+  was interpreted as using part of the Obsidian trademark. The public product
+  name changes to `Branchory`, which is not present in the current Community
+  Plugins directory and does not contain an Obsidian name fragment.
+- The stable plugin ID (`obmind`), repository URL, CSS/data prefixes, persisted
+  schemas, and internal TypeScript names remain unchanged. This preserves
+  installed settings, annotations, release URLs, and renderer integration while
+  keeping the user-visible brand independently replaceable.
+- User-facing UI catalogs, public documentation, legal notices, README logo
+  metadata, and the manifest name use `Branchory`. Internal compatibility
+  identifiers may continue to use `ObMind` where renaming would create needless
+  migration risk.
+- The corrected submission is version `0.1.1`, with a matching manifest,
+  package metadata, `versions.json` entry, Git tag, GitHub Release, and release
+  assets. The failed `0.1.0` release remains available for traceability.
+- GitHub artifact attestations are a Community Directory recommendation rather
+  than the failing requirement. They are deferred until a reviewed release
+  workflow can build and attest the exact distributed assets without expanding
+  the current manual release scope.

@@ -276,7 +276,7 @@ export default class ObMindPlugin
 
   private get controller(): MindMapController {
     if (this.mindMapController === null) {
-      throw new Error("ObMind controller is not loaded");
+      throw new Error("Branchory controller is not loaded");
     }
 
     return this.mindMapController;
@@ -1018,7 +1018,7 @@ export default class ObMindPlugin
   ): Promise<void> {
     if (!isAppearanceMode(appearanceMode)) {
       throw new Error(
-        `Unknown ObMind appearance mode "${String(appearanceMode)}".`,
+        `Unknown Branchory appearance mode "${String(appearanceMode)}".`,
       );
     }
     await this.persistPluginDataMutation((data) =>
@@ -1047,7 +1047,7 @@ export default class ObMindPlugin
    */
   public async setMindMapLanguage(language: ObMindLanguage): Promise<void> {
     if (!isObMindLanguage(language)) {
-      throw new Error(`Unknown ObMind language "${String(language)}".`);
+      throw new Error(`Unknown Branchory language "${String(language)}".`);
     }
     if (language === this.settings.language) {
       return;
@@ -1316,7 +1316,7 @@ export default class ObMindPlugin
 
   private requirePluginDataStore(): SerializedObMindPluginDataStore {
     if (this.pluginDataStore === null) {
-      throw new Error("ObMind plugin data is not loaded.");
+      throw new Error("Branchory plugin data is not loaded.");
     }
     return this.pluginDataStore;
   }
@@ -1494,7 +1494,7 @@ export default class ObMindPlugin
   ): Promise<MindMapNodeEditResult> {
     return this.runSourceMutation(async () => {
       if (this.unloading) {
-        throw new Error("ObMind is unloading.");
+        throw new Error("Branchory is unloading.");
       }
       const file = this.app.vault.getFileByPath(node.source.path);
       if (file === null || file.extension.toLowerCase() !== "md") {
@@ -1546,7 +1546,7 @@ export default class ObMindPlugin
     newText: string,
   ): Promise<MindMapNodeEditResult> {
     if (this.unloading) {
-      throw new Error("ObMind is unloading.");
+      throw new Error("Branchory is unloading.");
     }
 
     const file = this.app.vault.getFileByPath(node.source.path);
@@ -1661,7 +1661,7 @@ export default class ObMindPlugin
     createKind: NodeCreateKind,
   ): Promise<MindMapNodeCreationResult> {
     if (this.unloading) {
-      throw new Error("ObMind is unloading.");
+      throw new Error("Branchory is unloading.");
     }
     if (
       document.root.source.path !== node.source.path ||
@@ -1797,7 +1797,7 @@ export default class ObMindPlugin
     placement: NodeMovePlacement,
   ): Promise<MindMapNodeMoveResult> {
     if (this.unloading) {
-      throw new Error("ObMind is unloading.");
+      throw new Error("Branchory is unloading.");
     }
     if (
       sourceNode.kind === "root" ||
@@ -1932,7 +1932,7 @@ export default class ObMindPlugin
     request: MindMapTopicCommandRequest,
   ): Promise<MindMapTopicCommandResult> {
     if (this.unloading) {
-      throw new Error("ObMind is unloading.");
+      throw new Error("Branchory is unloading.");
     }
     if (
       document.sourceRevision !== request.sourceRevision ||
@@ -2469,7 +2469,7 @@ export default class ObMindPlugin
         this.unloading &&
         error instanceof ExclusiveTaskQueueClosedError
       ) {
-        throw new Error("ObMind is unloading.");
+        throw new Error("Branchory is unloading.");
       }
       throw error;
     });
@@ -2559,7 +2559,7 @@ export default class ObMindPlugin
     this.mutationHistories.delete(oldPath);
     this.mutationHistories.delete(file.path);
     if (this.unloading || this.mindMapController === null) {
-      throw new Error("ObMind unloaded while the note was being renamed.");
+      throw new Error("Branchory unloaded while the note was being renamed.");
     }
     if (this.controller.getCurrentSourcePath() === oldPath) {
       this.activateFile(file, true);
@@ -2705,7 +2705,7 @@ export default class ObMindPlugin
     destinationPath: string,
   ): Promise<void> {
     if (this.unloading) {
-      throw new Error("ObMind is unloading.");
+      throw new Error("Branchory is unloading.");
     }
     const normalizedPath = normalizePath(destinationPath);
     const importedFile = await this.runSourceMutation(async () =>
@@ -2890,7 +2890,7 @@ export default class ObMindPlugin
         .defaultView ?? window.activeWindow;
     await this.waitForEditorTransition(editorWindow);
     if (this.unloading) {
-      throw new Error("ObMind is unloading");
+      throw new Error("Branchory is unloading");
     }
 
     const openLeaf = this.findOpenMarkdownLeaf(file.path);

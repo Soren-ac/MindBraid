@@ -389,7 +389,7 @@ function importJsonTopicTree(
 			emitDiagnostic(
 				builder,
 				"xmind-summaries-omitted",
-				"XMind summary topics were not imported because summaries are not yet rendered by ObMind.",
+				"XMind summary topics were not imported because summaries are not yet rendered by Branchory.",
 				sheetId,
 				rawTopicId,
 			);
@@ -487,7 +487,7 @@ function importXmlTopicTree(
 			emitDiagnostic(
 				builder,
 				"xmind-summaries-omitted",
-				"XMind summary topics were not imported because summaries are not yet rendered by ObMind.",
+				"XMind summary topics were not imported because summaries are not yet rendered by Branchory.",
 				sheetId,
 				rawTopicId,
 			);
@@ -594,7 +594,7 @@ function inspectJsonTopicFeatures(
 		emitDiagnostic(
 			builder,
 			"xmind-notes-omitted",
-			"XMind topic notes were not imported because Markdown topic bodies are not represented by ObMind's tree model.",
+			"XMind topic notes were not imported because Markdown topic bodies are not represented by Branchory's tree model.",
 			sheetId,
 			topicId,
 		);
@@ -687,7 +687,7 @@ function inspectXmlTopicFeatures(
 		emitDiagnostic(
 			builder,
 			"xmind-notes-omitted",
-			"XMind topic notes were not imported because Markdown topic bodies are not represented by ObMind's tree model.",
+			"XMind topic notes were not imported because Markdown topic bodies are not represented by Branchory's tree model.",
 			sheetId,
 			topicId,
 		);

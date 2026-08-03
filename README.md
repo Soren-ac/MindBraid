@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/readme/obmind-logo.svg" width="96" alt="ObMind logo">
+  <img src="assets/readme/obmind-logo.svg" width="96" alt="Branchory logo">
 </p>
 
-<h1 align="center">ObMind</h1>
+<h1 align="center">Branchory</h1>
 
 <p align="center"><strong>Turn the structure already in your Markdown into an interactive mind map in Obsidian.</strong></p>
 
@@ -12,34 +12,34 @@
   <a href="https://github.com/Soren-ac/obmind/releases">Releases</a>
 </p>
 
-ObMind is a desktop-only Obsidian plugin for seeing, organizing, and reshaping
+Branchory is a desktop-only Obsidian plugin for seeing, organizing, and reshaping
 the note you are already writing. Your Markdown remains the source of truth;
-ObMind gives it a focused visual workspace without sending your notes anywhere.
+Branchory gives it a focused visual workspace without sending your notes anywhere.
 
 ## Product tour
 
-![ObMind Pencil style showing a complete balanced mind map](assets/readme/showcase-pencil-map.png)
+![Branchory Pencil style showing a complete balanced mind map](assets/readme/showcase-pencil-map.png)
 
 The map can use a hand-drawn treatment while keeping the same Markdown-backed
 structure and interactions.
 
-![ObMind appearance panel with independently selectable styles and palettes](assets/readme/showcase-appearance-panel.png)
+![Branchory appearance panel with independently selectable styles and palettes](assets/readme/showcase-appearance-panel.png)
 
 Styles control geometry and visual treatment; palettes change color only. The
 two axes can be combined independently from the sidebar.
 
-![ObMind topic menu, collapsed branches, and appearance controls](assets/readme/showcase-topic-menu.png)
+![Branchory topic menu, collapsed branches, and appearance controls](assets/readme/showcase-topic-menu.png)
 
 Topic actions stay close to the canvas, while collapsed branches keep a visible
 descendant count so hidden structure is never ambiguous.
 
-![A Markdown note rendered as an ObMind map in Obsidian](assets/readme/hero-light.png)
+![A Markdown note rendered as a Branchory map in Obsidian](assets/readme/hero-light.png)
 
-## Why ObMind
+## Why Branchory
 
 ### Markdown-native
 
-Open a mind map for the active note and ObMind turns its ATX headings and
+Open a mind map for the active note and Branchory turns its ATX headings and
 nested ordered or unordered lists into topics. The map follows the active
 Markdown file and refreshes while you write, so there is no second document to
 keep in sync.
@@ -63,18 +63,18 @@ Use the map as a working view, not just a diagram:
 
 ### Make it yours
 
-Choose a map layout independently from its visual treatment. ObMind includes
+Choose a map layout independently from its visual treatment. Branchory includes
 balanced and one-sided layouts with four directions, plus independent Style
 and Palette selectors. Colorful, Pencil, and Cloud styles can be paired with
 the built-in palettes, then refined with a global font, connector width and
 connector profile. Per-topic formatting, icons, markers, labels, boundaries,
 summaries, and relationships are available when you need more structure.
 
-![Independent style and palette controls in the ObMind sidebar](assets/readme/style-and-palette.png)
+![Independent style and palette controls in the Branchory sidebar](assets/readme/style-and-palette.png)
 
 ### Keep control of your notes
 
-- ObMind parses only the note currently needed for the map. It does not scan
+- Branchory parses only the note currently needed for the map. It does not scan
   your Vault.
 - It does not access the network and includes no telemetry.
 - Changing appearance, layout, collapse state, viewport, or other map
@@ -98,13 +98,13 @@ one branch with breadcrumbs, limit visible depth, and use a tab-local minimap.
 Export an explicit snapshot as SVG, PNG, JPG, or PDF. Import never overwrites
 an existing note; export does not alter Markdown, the live map, or its state.
 
-**Fit Obsidian** — ObMind follows Obsidian's appearance or can use a light or
+**Fit Obsidian** — Branchory follows Obsidian's appearance or can use a light or
 dark appearance inside its own views. Its interface is available in Simplified
 Chinese and English; new installs use Simplified Chinese by default.
 
 ## Install
 
-ObMind requires Obsidian `1.7.2` or newer on desktop. Mobile support has not
+Branchory requires Obsidian `1.7.2` or newer on desktop. Mobile support has not
 been implemented or tested.
 
 ### From a release
@@ -113,27 +113,27 @@ been implemented or tested.
    [release](https://github.com/Soren-ac/obmind/releases).
 2. Create `<your-vault>/.obsidian/plugins/obmind/`.
 3. Put all three files in that directory.
-4. Reload Obsidian, then enable **ObMind** under **Settings → Community
+4. Reload Obsidian, then enable **Branchory** under **Settings → Community
    plugins**.
 
-When ObMind is listed in Obsidian Community Plugins, installation will also be
+When Branchory is listed in Obsidian Community Plugins, installation will also be
 available from the in-app Community Plugins browser.
 
 ## Start a map
 
 1. Open a Markdown note.
-2. Use the ObMind button in the left ribbon, or run **ObMind: Open mind map
+2. Use the Branchory button in the left ribbon, or run **Branchory: Open mind map
    for current note** from the Command Palette.
-3. A new ObMind tab opens for the current note. Drag blank canvas to pan, use
+3. A new Branchory tab opens for the current note. Drag blank canvas to pan, use
    the mouse wheel to zoom, and use the toolbar for fit, layout, search, and
    other controls.
 
-Every open ObMind tab follows the active Markdown file. A non-Markdown file
+Every open Branchory tab follows the active Markdown file. A non-Markdown file
 shows an explanatory state instead of attempting to parse it.
 
 ## Markdown support
 
-The filename becomes the central topic. ObMind currently displays:
+The filename becomes the central topic. Branchory currently displays:
 
 - ATX headings from `#` to `######`, including skipped levels.
 - Unordered list items beginning with `-`, `*`, or `+`.
@@ -146,7 +146,7 @@ indented code, and unsupported Markdown structures stay out of the map.
 
 ## Limits to know
 
-- ObMind is a desktop plugin. It is not a mobile-ready mind-map experience.
+- Branchory is a desktop plugin. It is not a mobile-ready mind-map experience.
 - It supports a practical Markdown subset, not every CommonMark construct:
   Setext headings, complex list continuation lines, lazy block quotes, and
   HTML block semantics are not represented as topics.
@@ -158,14 +158,14 @@ indented code, and unsupported Markdown structures stay out of the map.
 
 ## Privacy and source changes
 
-ObMind is local-first. It does not upload notes, request network resources, or
+Branchory is local-first. It does not upload notes, request network resources, or
 collect telemetry. The plugin avoids whole-Vault scans and works from the
 current note.
 
-Visual choices are saved as ObMind plugin data rather than injected into your
+Visual choices are saved as Branchory plugin data rather than injected into your
 Markdown. By contrast, an explicit topic edit, creation, structural drop,
 task toggle, or supported topic command intentionally updates the source note.
-Before a write, ObMind validates the current source mapping to avoid applying a
+Before a write, Branchory validates the current source mapping to avoid applying a
 stale operation. Root-topic renames rename the Markdown file through Obsidian;
 depending on your Obsidian link-update preference, Obsidian may update links to
 that file.
@@ -174,7 +174,7 @@ that file.
 
 Please report reproducible issues in the
 [issue tracker](https://github.com/Soren-ac/obmind/issues). Include the
-ObMind and Obsidian versions, operating system, a minimal Markdown sample, and
+Branchory and Obsidian versions, operating system, a minimal Markdown sample, and
 the smallest reliable reproduction. Do not attach unrelated private Vault
 content.
 
@@ -184,6 +184,6 @@ in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 
-ObMind is available under the [MIT License](LICENSE). Notices for bundled
+Branchory is available under the [MIT License](LICENSE). Notices for bundled
 open-source software are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

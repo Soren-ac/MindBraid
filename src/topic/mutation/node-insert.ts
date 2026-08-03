@@ -395,13 +395,13 @@ function createSafeStructuralLine(
 	text: string,
 	path: string,
 ): string {
-	const placeholder = "ObMind insertion placeholder";
+	const placeholder = "Branchory insertion placeholder";
 	const sourceLine = `${prefix}${placeholder}`;
 	const leadingWhitespace = getLeadingWhitespace(sourceLine);
 	const needsListContext =
 		kind === "list" && getIndentWidth(leadingWhitespace) >= 4;
 	const syntheticContent = needsListContext
-		? `- ObMind insertion parent\n${sourceLine}`
+		? `- Branchory insertion parent\n${sourceLine}`
 		: sourceLine;
 	const targetLine = needsListContext ? 1 : 0;
 	const parsed = parseMarkdown(syntheticContent, path, "");

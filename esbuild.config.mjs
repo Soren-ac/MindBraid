@@ -5,7 +5,7 @@ const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
 
 const legalBanner = `/*!
- * ObMind is licensed under the MIT License.
+ * Branchory is licensed under the MIT License.
  * Copyright (c) 2026 Soren-ac
  *
  * Bundled third-party software:

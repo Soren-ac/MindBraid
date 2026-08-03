@@ -1,6 +1,6 @@
 {
   "name": "obmind",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An interactive mind-map view and inline topic editor for Markdown notes in Obsidian.",
   "author": "Soren-ac",
   "license": "MIT",

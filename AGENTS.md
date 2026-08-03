@@ -1,8 +1,8 @@
-# ObMind repository guide
+# Branchory repository guide
 
 ## Product contract
 
-ObMind is a desktop-only Obsidian plugin that visualizes the active Markdown
+Branchory is a desktop-only Obsidian plugin that visualizes the active Markdown
 note as a mind map. Creating a new Markdown note from an external mind-map
 file is allowed only after an explicit `import-mind-map-file` command, successful
 read-only preview, and final user confirmation. Existing source changes are
@@ -19,6 +19,10 @@ user activates the explicit export control and confirms its options. Export is
 read-only with respect to Markdown, presentation annotations, and Vault notes;
 it must capture one immutable per-tab scene snapshot and must not change the
 live viewport, collapsed state, selection, or active inline edit.
+
+The stable plugin ID, persisted data schema, TypeScript symbols, and CSS prefix
+remain `obmind`/`ObMind` for backward compatibility. User-visible product text
+uses `Branchory` and must not be coupled to those technical identifiers.
 
 ## Architecture boundaries
 

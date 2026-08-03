@@ -1,7 +1,7 @@
 export const OBMIND_CORE_EN_MESSAGES = {
 	"language.setting.name": "Language",
 	"language.setting.description":
-		"Choose the language used by ObMind commands, settings, and mind-map views.",
+		"Choose the language used by Branchory commands, settings, and mind-map views.",
 	"language.zh-CN": "简体中文",
 	"language.en": "English",
 	"appearance.system": "Follow Obsidian",
@@ -31,7 +31,7 @@ export const OBMIND_CORE_EN_MESSAGES = {
 	"error.topic-selection-required": "Select a topic first.",
 	"error.outdent-outermost": "This topic is already at the outermost level.",
 	"error.history-stale":
-		"The note changed outside ObMind, so this history entry is no longer applicable.",
+		"The note changed outside Branchory, so this history entry is no longer applicable.",
 	"error.rename-stale":
 		"The note name changed before the edit was committed. Try again.",
 	"error.rename-conflict": "A note named \"{name}\" already exists here.",
@@ -122,7 +122,7 @@ export const OBMIND_CORE_EN_MESSAGES = {
 export const OBMIND_CORE_ZH_CN_MESSAGES = {
 	"language.setting.name": "语言",
 	"language.setting.description":
-		"选择 ObMind 命令、设置和思维导图界面所使用的语言。",
+		"选择 Branchory 命令、设置和思维导图界面所使用的语言。",
 	"language.zh-CN": "简体中文",
 	"language.en": "English",
 	"appearance.system": "跟随 Obsidian",
@@ -149,7 +149,7 @@ export const OBMIND_CORE_ZH_CN_MESSAGES = {
 	"error.paste-target-required": "请先选择粘贴目标。",
 	"error.topic-selection-required": "请先选择一个主题。",
 	"error.outdent-outermost": "此主题已经处于最外层。",
-	"error.history-stale": "笔记已在 ObMind 之外发生变化，此历史记录已失效。",
+	"error.history-stale": "笔记已在 Branchory 之外发生变化，此历史记录已失效。",
 	"error.rename-stale": "提交前笔记名称已发生变化，请重试。",
 	"error.rename-conflict": "当前位置已存在名为“{name}”的笔记。",
 	"error.root-protected": "文档根节点不支持此操作。",
