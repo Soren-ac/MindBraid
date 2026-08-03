@@ -4,26 +4,42 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "lib": [
-      "ES2021",
+      "ES2022",
       "DOM"
     ],
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "Node",
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@codemirror/state": [
+        "./src/tests/vendor-types/codemirror-state.d.ts"
+      ],
+      "@codemirror/view": [
+        "./src/tests/vendor-types/codemirror-view.d.ts"
+      ],
+      "fflate": [
+        "./src/tests/vendor-types/fflate.d.ts"
+      ],
+      "moment": [
+        "./src/tests/vendor-types/moment.d.ts"
+      ],
+      "obsidian": [
+        "./src/tests/vendor-types/obsidian.d.ts"
+      ],
+      "pdf-lib": [
+        "./src/tests/vendor-types/pdf-lib.d.ts"
+      ]
+    },
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2021",
-    "types": [
-      "node"
-    ],
     "useDefineForClassFields": true
   },
   "include": [
     "src/**/*.ts",
     "tests/**/*.ts",
-    "benchmarks/**/*.ts",
     "vitest.config.ts"
   ]
 }

@@ -2898,11 +2898,12 @@
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: 0;
   overflow: hidden;
   border: 0;
+  opacity: 0;
+  pointer-events: none;
   white-space: nowrap;
-  clip-path: inset(50%);
 }
 
 .obmind-view .obmind-node-content:hover,

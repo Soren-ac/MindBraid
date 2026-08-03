@@ -1,11 +1,11 @@
 import { bench, describe } from "vitest";
 
-import { planMindMapExport } from "../src/export/plan";
-import { serializeMindMapExportSceneToSvg } from "../src/export/svg";
+import { planMindMapExport } from "../../src/export/plan";
+import { serializeMindMapExportSceneToSvg } from "../../src/export/svg";
 import type {
 	MindMapExportPrimitive,
 	MindMapExportScene,
-} from "../src/export/types";
+} from "../../src/export/types";
 
 /**
  * Explicit, opt-in performance coverage. It has no wall-clock assertion, so

@@ -48,21 +48,43 @@ export type MindMapViewState =
 export type MindMapViewStateListener = (state: MindMapViewState) => void;
 export type ContentLoader = () => Promise<string>;
 
+export type CancelScheduledMindMapTask = () => void;
+
+/**
+ * Framework-neutral scheduling boundary for controller debounce work.
+ *
+ * The host owns the concrete timer and returns an idempotent cancellation
+ * callback, so the controller never depends on browser or Node timer handles.
+ */
+export interface MindMapTimerPort {
+  schedule(
+    callback: () => void,
+    delayMs: number,
+  ): CancelScheduledMindMapTask;
+}
+
+export interface MindMapControllerOptions {
+  readonly timerPort: MindMapTimerPort;
+  readonly debounceMs?: number;
+}
+
 const DEFAULT_DEBOUNCE_MS = 250;
 
 export class MindMapController {
   private readonly listeners = new Set<MindMapViewStateListener>();
   private readonly debounceMs: number;
+  private readonly timerPort: MindMapTimerPort;
   private state: MindMapViewState;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private cancelDebounceTask: CancelScheduledMindMapTask | null = null;
   private generation = 0;
   private disposed = false;
 
   public constructor(
     direction: LayoutDirection,
-    debounceMs = DEFAULT_DEBOUNCE_MS,
+    options: MindMapControllerOptions,
   ) {
-    this.debounceMs = debounceMs;
+    this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+    this.timerPort = options.timerPort;
     this.state = {
       status: "idle",
       direction,
@@ -167,10 +189,9 @@ export class MindMapController {
     this.clearDebounceTimer();
     const workGeneration = ++this.generation;
 
-    this.debounceTimer = setTimeout(() => {
-      this.debounceTimer = null;
+    this.scheduleDebouncedTask(() => {
       this.parseAndCommit(source, content, workGeneration);
-    }, this.debounceMs);
+    });
   }
 
   /**
@@ -196,10 +217,9 @@ export class MindMapController {
     this.clearDebounceTimer();
     const workGeneration = ++this.generation;
 
-    this.debounceTimer = setTimeout(() => {
-      this.debounceTimer = null;
+    this.scheduleDebouncedTask(() => {
       void this.loadAndCommit(source, loader, workGeneration);
-    }, this.debounceMs);
+    });
   }
 
   public refreshCurrent(loader: ContentLoader): void {
@@ -322,13 +342,38 @@ export class MindMapController {
     this.generation += 1;
   }
 
+  /**
+   * Schedule one debounced task without retaining a cancellation callback for
+   * work that a synchronous scheduler has already completed. Keeping the
+   * callback local until `schedule` returns also prevents an immediately
+   * invoked callback from clearing a newer task scheduled by a listener.
+   */
+  private scheduleDebouncedTask(callback: () => void): void {
+    let completed = false;
+    let cancel: CancelScheduledMindMapTask | null = null;
+
+    const scheduledCancel = this.timerPort.schedule(() => {
+      completed = true;
+      if (cancel !== null && this.cancelDebounceTask === cancel) {
+        this.cancelDebounceTask = null;
+      }
+      callback();
+    }, this.debounceMs);
+
+    cancel = scheduledCancel;
+    if (!completed) {
+      this.cancelDebounceTask = scheduledCancel;
+    }
+  }
+
   private clearDebounceTimer(): void {
-    if (this.debounceTimer === null) {
+    if (this.cancelDebounceTask === null) {
       return;
     }
 
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = null;
+    const cancel = this.cancelDebounceTask;
+    this.cancelDebounceTask = null;
+    cancel();
   }
 }
 

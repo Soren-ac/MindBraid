@@ -233,7 +233,7 @@ describe("ObMind settings normalization", () => {
 
     expect(isLayoutOrientation("sideways")).toBe(false);
     expect(() => requireDefaultLayoutOrientation("sideways")).toThrow(
-      "cannot be saved as a Branchory default",
+      "cannot be saved as a MindBraid default",
     );
   });
 
@@ -260,10 +260,10 @@ describe("ObMind settings normalization", () => {
       "top-to-bottom",
     );
     expect(() => requireDefaultLayoutDirection("right-to-left")).toThrow(
-      "cannot be saved as a Branchory default",
+      "cannot be saved as a MindBraid default",
     );
     expect(() => requireDefaultLayoutDirection("bottom-to-top")).toThrow(
-      "cannot be saved as a Branchory default",
+      "cannot be saved as a MindBraid default",
     );
   });
 });

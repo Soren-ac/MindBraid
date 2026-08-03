@@ -8,6 +8,10 @@ export default defineConfig(
     "coverage",
     "main.js",
     "package-lock.json",
+    // Immutable upstream API declaration snapshot. First-party code is still
+    // checked against it through tsconfig paths, but we do not lint the
+    // generated declaration text as though it were MindBraid source.
+    "src/tests/vendor-types",
     "versions.json"
   ]),
   {
@@ -20,7 +24,8 @@ export default defineConfig(
           allowDefaultProject: [
             "eslint.config.mjs",
             "esbuild.config.mjs",
-            "manifest.json"
+            "manifest.json",
+            "scripts/verify-vendor-types.mjs"
           ]
         },
         tsconfigRootDir: import.meta.dirname,
@@ -28,13 +33,5 @@ export default defineConfig(
       }
     }
   },
-  ...obsidianmd.configs.recommended,
-  {
-    files: ["src/application/controller.ts"],
-    rules: {
-      // The controller is deliberately browser-framework-free and runs in
-      // Vitest's Node environment, so it uses the platform timer globals.
-      "obsidianmd/prefer-window-timers": "off"
-    }
-  }
+  ...obsidianmd.configs.recommended
 );

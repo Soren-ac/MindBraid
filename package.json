@@ -1,32 +1,35 @@
 {
   "name": "obmind",
-  "version": "0.1.1",
-  "description": "An interactive mind-map view and inline topic editor for Markdown notes in Obsidian.",
+  "version": "0.1.2",
+  "description": "Turn Markdown notes into interactive, editable mind maps (思维导图) with layouts, themes, search, import, and export.",
   "author": "Soren-ac",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Soren-ac/obmind.git"
+    "url": "git+https://github.com/Soren-ac/MindBraid.git"
   },
-  "homepage": "https://github.com/Soren-ac/obmind#readme",
+  "homepage": "https://github.com/Soren-ac/MindBraid#readme",
   "bugs": {
-    "url": "https://github.com/Soren-ac/obmind/issues"
+    "url": "https://github.com/Soren-ac/MindBraid/issues"
   },
   "main": "main.js",
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "benchmark:export": "vitest bench benchmarks/export-scene.bench.ts",
+    "benchmark:export": "vitest bench tests/benchmarks/export-scene.bench.ts",
+    "verify:vendor-types": "node scripts/verify-vendor-types.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "npm run lint:ts && npm run lint:css",
+    "lint:ts": "eslint . --max-warnings=0",
+    "lint:css": "stylelint styles.css --max-warnings=0",
     "build": "npm run typecheck && node esbuild.config.mjs --production",
-    "check": "npm run test && npm run lint && npm run build"
+    "check": "npm run verify:vendor-types && npm run test && npm run lint && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -37,6 +40,8 @@
     "globals": "^17.8.0",
     "happy-dom": "^20.11.1",
     "obsidian": "^1.13.1",
+    "stylelint": "^17.14.1",
+    "stylelint-config-obsidianmd": "^0.1.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.10"

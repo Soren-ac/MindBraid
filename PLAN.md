@@ -1,4 +1,59 @@
-# ObMind phase-one MVP plan
+# MindBraid development plan
+
+## Community Plugin Scorecard hardening (2026-08-03)
+
+The 0.1.1 Community Plugin Scorecard reported 837 warnings. Reproduction
+showed that this was a combination of four actionable findings and 833
+cascading type findings caused by the scorecard analyzing TypeScript without
+the repository's installed dependency declarations.
+
+### Root cause and decisions
+
+- The 833 type findings were reproduced exactly by removing the available
+  `obsidian`, `fflate`, `pdf-lib`, Vitest, and Node declarations while linting
+  plugin source plus the root benchmark. Their category counts matched the
+  scorecard screenshot, so they are not treated as 833 independent runtime
+  vulnerabilities.
+- Keep all type-aware `@typescript-eslint/no-unsafe-*` rules enabled for
+  first-party code. Do not add inline or file-wide rule suppressions.
+- Remove the unnecessary global Node type injection from the browser plugin
+  `tsconfig.json`, use the official Obsidian-template-compatible Node module
+  resolver, and move the opt-in benchmark under `tests/`, which the scorecard
+  already excludes as non-plugin code.
+- Add `src/tests/vendor-types/` as a build-time analysis boundary. It contains
+  an exact, version-checked Obsidian API declaration snapshot and narrow
+  contracts for the two bundled runtime libraries used directly by source.
+  `tsconfig` paths make local ESLint and the dependency-less scorecard analyze
+  source against the same stable contracts. The declarations live under the
+  scorecard's built-in test exclusion so upstream declaration style is not
+  misreported as plugin risk, and they are not bundled into `main.js`.
+- Verify all three vendor contract package versions in `npm run check`; also
+  verify the Obsidian declaration snapshot byte-for-byte and dynamically
+  confirm the narrowly declared `fflate` and `pdf-lib` runtime entry points.
+  A dependency upgrade cannot silently leave the scorecard contract stale.
+- Replace the controller's bare timers with an injected framework-neutral
+  scheduler. Only the Obsidian composition root owns
+  `window.setTimeout/window.clearTimeout`, preserving popup-window safety and
+  controller testability.
+- Replace the unsupported `clip-path` visually-hidden rule with a 1px,
+  transparent, non-interactive label that remains in the accessibility tree.
+- Add `stylelint` and `stylelint-config-obsidianmd` as development-only
+  dependencies. CSS compatibility is checked conservatively against Electron
+  30 (Obsidian 1.6.5), while purely stylistic rules that would force a broad UI
+  rewrite are disabled. Security, URL, unsupported-feature, and Obsidian
+  compatibility rules remain active.
+
+### Files and acceptance
+
+- Core changes: `src/application/controller.ts`, `src/obsidian/main.ts`,
+  `tests/controller.test.ts`, `styles.css`, `tsconfig.json`,
+  `eslint.config.mjs`, `.stylelintrc.json`, `src/tests/vendor-types/`, and
+  `scripts/verify-vendor-types.mjs`.
+- No runtime dependency is added. Stylelint and its Obsidian configuration are
+  development-only and do not change the production bundle's dependency set.
+- Acceptance includes the normal test/type/lint/build suite plus a scorecard
+  simulation that temporarily removes installed dependency declarations and
+  type-aware lints `src/`. The expected result is zero findings.
 
 ## Sidebar settings workbench redesign (2026-08-03)
 
@@ -1661,17 +1716,15 @@ logic already aligned with the existing parser and mutation planners.
 ## Community directory trademark correction (2026-08-03)
 
 - The initial automated review rejected the display name `ObMind` because it
-  was interpreted as using part of the Obsidian trademark. The public product
-  name changes to `Branchory`, which is not present in the current Community
-  Plugins directory and does not contain an Obsidian name fragment.
+  was interpreted as using part of the Obsidian trademark. Version `0.1.1`
+  temporarily used `Branchory` to remove that blocker before the final public
+  naming pass.
 - The stable plugin ID (`obmind`), repository URL, CSS/data prefixes, persisted
   schemas, and internal TypeScript names remain unchanged. This preserves
   installed settings, annotations, release URLs, and renderer integration while
   keeping the user-visible brand independently replaceable.
-- User-facing UI catalogs, public documentation, legal notices, README logo
-  metadata, and the manifest name use `Branchory`. Internal compatibility
-  identifiers may continue to use `ObMind` where renaming would create needless
-  migration risk.
+- Internal compatibility identifiers may continue to use `ObMind` where
+  renaming would create needless migration risk.
 - The corrected submission is version `0.1.1`, with a matching manifest,
   package metadata, `versions.json` entry, Git tag, GitHub Release, and release
   assets. The failed `0.1.0` release remains available for traceability.
@@ -1679,3 +1732,22 @@ logic already aligned with the existing parser and mutation planners.
   than the failing requirement. They are deferred until a reviewed release
   workflow can build and attest the exact distributed assets without expanding
   the current manual release scope.
+
+## Search-oriented public naming and repository synchronization (2026-08-03)
+
+- The final public name is `MindBraid`. It contains `Mind`, remains concise and
+  brandable, and has no matching name or repository in the current Community
+  Plugins directory. Search phrases belong in the description rather than
+  making the product name generic.
+- The store, package, GitHub repository description, and README lead with the
+  natural bilingual description: `Turn Markdown notes into interactive,
+  editable mind maps (思维导图) with layouts, themes, search, import, and
+  export.` This keeps the English `mind maps` and Chinese `思维导图` queries in
+  user-readable copy without keyword stuffing.
+- The public GitHub repository becomes `Soren-ac/MindBraid`, and the
+  current release is `MindBraid 0.1.2`. README, package metadata,
+  issues, homepage, and release links use the renamed repository.
+- The plugin ID remains `obmind`; changing it would create a different
+  Community Plugins entry and break installed settings and annotations. GitHub
+  repository naming and product branding remain independent of this stable
+  compatibility identifier.

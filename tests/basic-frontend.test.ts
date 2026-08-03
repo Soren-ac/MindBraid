@@ -222,7 +222,7 @@ describe("BasicMindMapFrontend appearance control", () => {
 		frontend.update(createIdleFrame());
 
 		const appearance = container.querySelector<HTMLSelectElement>(
-			'[aria-label="Appearance for all Branchory views"]',
+			'[aria-label="Appearance for all MindBraid views"]',
 		);
 		const layout = container.querySelector<HTMLSelectElement>(
 			'[aria-label="Layout stored for this document"]',
@@ -274,7 +274,7 @@ describe("BasicMindMapFrontend appearance control", () => {
 		frontend.mount(document.body);
 		frontend.update(createIdleFrame());
 		const appearance = document.body.querySelector<HTMLSelectElement>(
-			'[aria-label="Appearance for all Branchory views"]',
+			'[aria-label="Appearance for all MindBraid views"]',
 		);
 		if (appearance === null) {
 			throw new Error("Expected the appearance toolbar control.");
@@ -354,7 +354,7 @@ describe("BasicMindMapFrontend language control", () => {
 		if (language === null) {
 			throw new Error("Expected the interface language selector.");
 		}
-		expect(language.getAttribute("aria-label")).toBe("Branchory 界面语言");
+		expect(language.getAttribute("aria-label")).toBe("MindBraid 界面语言");
 		expect(
 			Array.from(language.options, (option) => [option.value, option.textContent]),
 		).toEqual([
@@ -548,7 +548,7 @@ describe("BasicMindMapFrontend language control", () => {
 		frontend.update(createIdleFrame("system", "dark", "zh-CN"));
 
 		const appearance = document.body.querySelector<HTMLSelectElement>(
-			'[aria-label="所有 Branchory 视图的外观"]',
+			'[aria-label="所有 MindBraid 视图的外观"]',
 		);
 		if (appearance === null) {
 			throw new Error("Expected the localized appearance control.");

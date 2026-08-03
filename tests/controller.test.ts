@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MindMapController,
   type MindMapSource,
+  type MindMapTimerPort,
   type MindMapViewState,
 } from "../src/application/controller";
 
@@ -26,7 +27,7 @@ afterEach(() => {
 
 describe("MindMapController", () => {
   it("starts idle and immediately publishes the current state", () => {
-    const controller = new MindMapController("left-to-right");
+    const controller = createController();
     const states: MindMapViewState[] = [];
 
     const unsubscribe = controller.subscribe((state) => states.push(state));
@@ -42,7 +43,7 @@ describe("MindMapController", () => {
   });
 
   it("transitions from loading to a parsed ready document", async () => {
-    const controller = new MindMapController("left-to-right");
+    const controller = createController();
 
     controller.activateMarkdown(sourceA, async () => "# Heading");
     expect(controller.getState().status).toBe("loading");
@@ -61,7 +62,7 @@ describe("MindMapController", () => {
 
   it("debounces content snapshots until the configured delay", async () => {
     vi.useFakeTimers();
-    const controller = new MindMapController("left-to-right", 250);
+    const controller = createController(250);
 
     controller.activateMarkdown(sourceA, async () => "# Before");
     await flushPromises();
@@ -88,7 +89,7 @@ describe("MindMapController", () => {
 
   it("debounces reloads and reads content only after the delay", async () => {
     vi.useFakeTimers();
-    const controller = new MindMapController("left-to-right", 250);
+    const controller = createController(250);
     const loader = vi.fn(async () => "# Reloaded");
 
     controller.activateMarkdown(sourceA, async () => "# Before");
@@ -113,7 +114,7 @@ describe("MindMapController", () => {
 
   it("applies an explicit commit immediately and cancels pending content", async () => {
     vi.useFakeTimers();
-    const controller = new MindMapController("left-to-right", 250);
+    const controller = createController(250);
 
     controller.activateMarkdown(sourceA, async () => "# Before");
     await flushPromises();
@@ -142,7 +143,7 @@ describe("MindMapController", () => {
 
   it("does not republish an identical source revision", async () => {
     vi.useFakeTimers();
-    const controller = new MindMapController("left-to-right", 250);
+    const controller = createController(250);
 
     controller.activateMarkdown(sourceA, async () => "# Stable");
     await flushPromises();
@@ -162,7 +163,7 @@ describe("MindMapController", () => {
 
   it("lets a newer editor snapshot supersede a pending reload", async () => {
     vi.useFakeTimers();
-    const controller = new MindMapController("left-to-right", 250);
+    const controller = createController(250);
     const reload = vi.fn(async () => "# Stale disk content");
 
     controller.activateMarkdown(sourceA, async () => "# Before");
@@ -184,7 +185,7 @@ describe("MindMapController", () => {
   });
 
   it("ignores a stale load after a newer source becomes ready", async () => {
-    const controller = new MindMapController("left-to-right");
+    const controller = createController();
     const oldLoad = createDeferred<string>();
     const newLoad = createDeferred<string>();
 
@@ -208,7 +209,7 @@ describe("MindMapController", () => {
 
   it("does not apply edits for a source that is not active", async () => {
     vi.useFakeTimers();
-    const controller = new MindMapController("left-to-right", 250);
+    const controller = createController(250);
 
     controller.activateMarkdown(sourceA, async () => "# Current");
     await flushPromises();
@@ -226,7 +227,7 @@ describe("MindMapController", () => {
   });
 
   it("publishes unsupported and error states and preserves direction", () => {
-    const controller = new MindMapController("left-to-right");
+    const controller = createController();
     const imageSource: MindMapSource = {
       path: "image.png",
       basename: "image",
@@ -255,7 +256,7 @@ describe("MindMapController", () => {
   });
 
   it("publishes a current loader error and ignores a stale rejection", async () => {
-    const controller = new MindMapController("left-to-right");
+    const controller = createController();
     const staleLoad = createDeferred<string>();
 
     controller.activateMarkdown(sourceA, () => staleLoad.promise);
@@ -286,7 +287,7 @@ describe("MindMapController", () => {
 
   it("cancels pending debounced work when disposed", async () => {
     vi.useFakeTimers();
-    const controller = new MindMapController("left-to-right", 250);
+    const controller = createController(250);
     const listener = vi.fn();
 
     controller.activateMarkdown(sourceA, async () => "# Before");
@@ -298,7 +299,66 @@ describe("MindMapController", () => {
 
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  it("does not cancel a task that a synchronous scheduler already completed", async () => {
+    const cancel = vi.fn();
+    const synchronousTimerPort: MindMapTimerPort = {
+      schedule(callback) {
+        callback();
+        return cancel;
+      },
+    };
+    const controller = new MindMapController("left-to-right", {
+      timerPort: synchronousTimerPort,
+    });
+
+    controller.activateMarkdown(sourceA, async () => "# Before");
+    await flushPromises();
+    controller.scheduleContent(sourceA, "# After");
+
+    const state = controller.getState();
+    expect(state.status).toBe("ready");
+    if (state.status === "ready") {
+      expect(state.document.root.children[0]?.text).toBe("After");
+    }
+
+    controller.dispose();
+
+    expect(cancel).not.toHaveBeenCalled();
+  });
 });
+
+const TEST_TIMER_PORT: MindMapTimerPort = {
+  schedule(callback, delayMs) {
+    const scheduleTimer = setTimeout;
+    const cancelTimer = clearTimeout;
+    let pending = true;
+    const timer = scheduleTimer(() => {
+      if (!pending) {
+        return;
+      }
+
+      pending = false;
+      callback();
+    }, delayMs);
+
+    return () => {
+      if (!pending) {
+        return;
+      }
+
+      pending = false;
+      cancelTimer(timer);
+    };
+  },
+};
+
+function createController(debounceMs?: number): MindMapController {
+  return new MindMapController("left-to-right", {
+    timerPort: TEST_TIMER_PORT,
+    ...(debounceMs === undefined ? {} : { debounceMs }),
+  });
+}
 
 interface Deferred<T> {
   readonly promise: Promise<T>;

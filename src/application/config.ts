@@ -194,7 +194,7 @@ export function requireDefaultLayoutOrientation(
   }
 
   throw new Error(
-    `Layout orientation "${String(value)}" cannot be saved as a Branchory default. ` +
+    `Layout orientation "${String(value)}" cannot be saved as a MindBraid default. ` +
       "Choose left-to-right, right-to-left, top-to-bottom, or bottom-to-top.",
   );
 }
@@ -285,7 +285,7 @@ export function requireDefaultLayoutDirection(value: unknown): LayoutDirection {
   }
 
   throw new Error(
-    `Layout orientation "${String(value)}" cannot be saved as a Branchory default. ` +
+    `Layout orientation "${String(value)}" cannot be saved as a MindBraid default. ` +
       "Choose left-to-right or top-to-bottom.",
   );
 }

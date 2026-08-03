@@ -1,8 +1,17 @@
 # Third-party notices
 
-Branchory bundles the following third-party software in `main.js`. The same
+MindBraid bundles the following third-party software in `main.js`. The same
 notices are embedded in the release bundle so they accompany the installable
 plugin artifact.
+
+## Obsidian API declarations 1.13.1 (source-only)
+
+Copyright (c) 2022 Dynalist Inc.
+
+Licensed under the MIT License. An unmodified API declaration snapshot is kept
+in `src/tests/vendor-types/obsidian.d.ts` so dependency-less Community Plugin
+Scorecard runs can type-check MindBraid source. It is a development artifact
+and is not bundled into `main.js`.
 
 ## fflate 0.8.3
 

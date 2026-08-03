@@ -36,7 +36,7 @@ export const OBMIND_OBSIDIAN_EN_MESSAGES = {
 
 	"notice.persistence-failed": "Could not save mind-map presentation data.",
 	"notice.source-unavailable": "The source note is no longer available.",
-	"notice.link-unavailable": "Only local Markdown and wikilinks can be opened in Branchory.",
+	"notice.link-unavailable": "Only local Markdown and wikilinks can be opened in MindBraid.",
 	"notice.source-open-failed":
 		"Could not open the source note in the Markdown editor.",
 	"notice.import-already-open": "A mind-map import is already open.",
@@ -50,9 +50,9 @@ export const OBMIND_OBSIDIAN_EN_MESSAGES = {
 	"notice.import-complete": "Imported {count} topics to {path}.",
 	"notice.clipboard-required": "Copy or cut a topic before pasting.",
 	"notice.undo-unavailable":
-		"There is no applicable Branchory source edit to undo.",
+		"There is no applicable MindBraid source edit to undo.",
 	"notice.redo-unavailable":
-		"There is no applicable Branchory source edit to redo.",
+		"There is no applicable MindBraid source edit to redo.",
 	"history.toggle-branch": "Toggle branch",
 	"history.reveal-topic": "Reveal topic",
 	"history.expand-all": "Expand all branches",
@@ -140,11 +140,11 @@ export const OBMIND_OBSIDIAN_EN_MESSAGES = {
 	"import-diagnostic.xmind-detached-topics-omitted":
 		"Detached XMind topics were not imported because Markdown has no equivalent tree relationship.",
 	"import-diagnostic.xmind-summaries-omitted":
-		"XMind summary topics were not imported because summaries are not yet rendered by Branchory.",
+		"XMind summary topics were not imported because summaries are not yet rendered by MindBraid.",
 	"import-diagnostic.xmind-relationships-omitted":
 		"XMind relationships were not imported because relationship rendering is not yet available.",
 	"import-diagnostic.xmind-notes-omitted":
-		"XMind topic notes were not imported because Markdown topic bodies are not represented by Branchory's tree model.",
+		"XMind topic notes were not imported because Markdown topic bodies are not represented by MindBraid's tree model.",
 	"import-diagnostic.xmind-labels-omitted": "XMind topic labels were not imported.",
 	"import-diagnostic.xmind-images-omitted":
 		"XMind topic images and attachments were not imported.",
@@ -184,7 +184,7 @@ export const OBMIND_OBSIDIAN_ZH_CN_MESSAGES = {
 
 	"notice.persistence-failed": "无法保存思维导图展示数据。",
 	"notice.source-unavailable": "源笔记已不可用。",
-	"notice.link-unavailable": "Branchory 仅打开本地 Markdown 链接和双链。",
+	"notice.link-unavailable": "MindBraid 仅打开本地 Markdown 链接和双链。",
 	"notice.source-open-failed": "无法在 Markdown 编辑器中打开源笔记。",
 	"notice.import-already-open": "已有一个思维导图导入流程正在进行。",
 	"notice.import-file-too-large":
@@ -195,8 +195,8 @@ export const OBMIND_OBSIDIAN_ZH_CN_MESSAGES = {
 		"已将 {count} 个主题导入到 {path}，但无法打开新视图。",
 	"notice.import-complete": "已将 {count} 个主题导入到 {path}。",
 	"notice.clipboard-required": "请先复制或剪切一个主题，再进行粘贴。",
-	"notice.undo-unavailable": "没有可撤销的 Branchory 源文件编辑。",
-	"notice.redo-unavailable": "没有可重做的 Branchory 源文件编辑。",
+	"notice.undo-unavailable": "没有可撤销的 MindBraid 源文件编辑。",
+	"notice.redo-unavailable": "没有可重做的 MindBraid 源文件编辑。",
 	"history.toggle-branch": "切换分支折叠状态",
 	"history.reveal-topic": "显示主题",
 	"history.expand-all": "展开所有分支",
@@ -270,15 +270,15 @@ export const OBMIND_OBSIDIAN_ZH_CN_MESSAGES = {
 	"import-diagnostic.xmind-detached-topics-omitted":
 		"Markdown 没有对应的树关系，因此未导入 XMind 浮动主题。",
 	"import-diagnostic.xmind-summaries-omitted":
-		"Branchory 暂不渲染摘要，因此未导入 XMind 摘要主题。",
+		"MindBraid 暂不渲染摘要，因此未导入 XMind 摘要主题。",
 	"import-diagnostic.xmind-relationships-omitted":
-		"Branchory 暂不支持关系线渲染，因此未导入 XMind 关系。",
+		"MindBraid 暂不支持关系线渲染，因此未导入 XMind 关系。",
 	"import-diagnostic.xmind-notes-omitted":
-		"Branchory 的树模型不表示 Markdown 主题正文，因此未导入 XMind 主题注释。",
+		"MindBraid 的树模型不表示 Markdown 主题正文，因此未导入 XMind 主题注释。",
 	"import-diagnostic.xmind-labels-omitted": "未导入 XMind 主题标签。",
 	"import-diagnostic.xmind-images-omitted": "未导入 XMind 主题图片和附件。",
 	"import-diagnostic.xmind-boundaries-omitted":
-		"Branchory 暂不支持边界渲染，因此未导入 XMind 边界。",
+		"MindBraid 暂不支持边界渲染，因此未导入 XMind 边界。",
 	"import-diagnostic.xmind-markers-omitted":
 		"只能保留明确的 XMind 待办或完成标记；其他标记未导入。",
 	"import-diagnostic.xmind-manifest-unreadable":

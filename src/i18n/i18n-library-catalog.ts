@@ -63,9 +63,9 @@ export const OBMIND_LIBRARY_EN_MESSAGES = {
 	"library.color.host-token-notice":
 		"This value currently follows an Obsidian color token. Choosing a color creates a literal override.",
 	"library.conflict.style":
-		"This custom style changed in another Branchory view. Your local draft is preserved.",
+		"This custom style changed in another MindBraid view. Your local draft is preserved.",
 	"library.conflict.palette":
-		"This custom color scheme changed in another Branchory view. Your local draft is preserved.",
+		"This custom color scheme changed in another MindBraid view. Your local draft is preserved.",
 	"library.conflict.reload": "Reload latest (discard local draft)",
 	"library.conflict.reload-aria":
 		"Reload revision {revision} and discard the local draft",
@@ -135,9 +135,9 @@ export const OBMIND_LIBRARY_ZH_CN_MESSAGES = {
 	"library.color.host-token-notice":
 		"此值当前跟随 Obsidian 的颜色令牌。选择颜色会创建一个固定颜色覆盖值。",
 	"library.conflict.style":
-		"此自定义样式已在另一个 Branchory 视图中更改。已保留你的本地草稿。",
+		"此自定义样式已在另一个 MindBraid 视图中更改。已保留你的本地草稿。",
 	"library.conflict.palette":
-		"此自定义配色方案已在另一个 Branchory 视图中更改。已保留你的本地草稿。",
+		"此自定义配色方案已在另一个 MindBraid 视图中更改。已保留你的本地草稿。",
 	"library.conflict.reload": "重新加载最新版本（丢弃本地草稿）",
 	"library.conflict.reload-aria": "重新加载修订版本 {revision} 并丢弃本地草稿",
 } as const satisfies Record<

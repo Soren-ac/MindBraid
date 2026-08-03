@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { OBMIND_ICON_ID, OBMIND_ICON_SVG } from "../src/ui/branding";
 
-describe("Branchory branding", () => {
+describe("MindBraid branding", () => {
   it("provides a scoped, theme-aware, self-contained icon fragment", () => {
     expect(OBMIND_ICON_ID).toBe("obmind-logo");
     expect(OBMIND_ICON_SVG).toContain('stroke="currentColor"');

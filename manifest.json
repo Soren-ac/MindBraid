@@ -1,9 +1,9 @@
 {
   "id": "obmind",
-  "name": "Branchory",
-  "version": "0.1.1",
+  "name": "MindBraid",
+  "version": "0.1.2",
   "minAppVersion": "1.7.2",
-  "description": "Displays and edits the active Markdown note as an interactive mind map.",
+  "description": "Turn Markdown notes into interactive, editable mind maps (思维导图) with layouts, themes, search, import, and export.",
   "author": "Soren-ac",
   "authorUrl": "https://github.com/Soren-ac",
   "isDesktopOnly": true
