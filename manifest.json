@@ -1,0 +1,10 @@
+{
+  "id": "obmind",
+  "name": "ObMind",
+  "version": "0.1.0",
+  "minAppVersion": "1.7.2",
+  "description": "Displays and edits the active Markdown note as an interactive mind map.",
+  "author": "Soren-ac",
+  "authorUrl": "https://github.com/Soren-ac",
+  "isDesktopOnly": true
+}

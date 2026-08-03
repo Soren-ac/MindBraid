@@ -1,0 +1,122 @@
+/**
+ * Renderer-owned product copy. Keep these semantic keys independent from the
+ * DOM/SVG implementation so an alternate renderer can reuse the same catalog.
+ */
+export const OBMIND_RENDERER_EN_MESSAGES = {
+	"renderer.canvas.aria": "Mind map canvas",
+	"renderer.tree.aria": "Mind map topics",
+	"renderer.decorations.aria": "Mind map decorations",
+	"renderer.minimap.aria": "Navigation minimap",
+	"renderer.decoration.aria": "{kind}: {label}",
+	"renderer.decoration.kind.marker": "Marker",
+	"renderer.decoration.kind.boundary": "Boundary",
+	"renderer.decoration.kind.relationship": "Relationship",
+	"renderer.decoration.kind.summary": "Summary",
+	"renderer.error.already-mounted": "Mind map renderer is already mounted.",
+	"renderer.error.not-mounted": "Mind map renderer must be mounted before rendering.",
+	"renderer.error.unknown": "Unknown mind-map rendering error",
+	"renderer.editor.edit-node": "Edit node",
+	"renderer.editor.edit-node-with-name": "Edit {node}",
+	"renderer.editor.empty-text": "Node text cannot be empty.",
+	"renderer.export.scene-unavailable":
+		"The current mind-map scene is not ready to export.",
+	"renderer.export.finish-editing-or-dragging":
+		"Finish editing or dragging the current topic before exporting.",
+	"renderer.export.cancelled": "Mind-map export was cancelled.",
+	"renderer.export.preparation-failed": "Mind-map export preparation failed.",
+	"renderer.task.mark-complete": "Mark task complete",
+	"renderer.task.mark-incomplete": "Mark task incomplete",
+	"renderer.task.aria": "{action}: {node}",
+	"renderer.topic.title":
+		"Click to select; click again or double-click to edit. Cmd/Ctrl-click toggles selection; Alt-click opens the Markdown source.",
+	"renderer.topic.aria": "{node}. Select topic; activate again to edit.",
+	"renderer.link.group-aria": "Links in {node}",
+	"renderer.link.open-title": "Open {label}",
+	"renderer.link.open-aria": "Open linked note {label}",
+	"renderer.disclosure.expand-title": "Expand {node}; {count} hidden",
+	"renderer.disclosure.collapse-title": "Collapse {node}",
+	"renderer.disclosure.none": "No hidden topics under {node}",
+	"renderer.disclosure.expand-aria":
+		"Expand {node}; {count} hidden descendants.",
+	"renderer.disclosure.collapse-aria":
+		"Collapse {node}; {directCount} direct children, {totalCount} descendants.",
+	"renderer.context-menu.aria": "Actions for {node}",
+	"renderer.context-menu.edit-topic": "Edit topic",
+	"renderer.context-menu.add-child": "Add child topic",
+	"renderer.context-menu.add-sibling": "Add sibling topic",
+	"renderer.context-menu.insert-parent": "Insert parent topic",
+	"renderer.context-menu.outdent": "Outdent topic",
+	"renderer.context-menu.copy-branch": "Copy branch",
+	"renderer.context-menu.cut-branch": "Cut branch",
+	"renderer.context-menu.paste-child": "Paste as child",
+	"renderer.context-menu.paste-sibling": "Paste as sibling",
+	"renderer.context-menu.delete-branch": "Delete branch",
+	"renderer.context-menu.delete-topic-only": "Delete topic only",
+	"renderer.context-menu.open-source": "Open Markdown source",
+	"renderer.context-menu.root-no-parent":
+		"The document root cannot have a parent topic.",
+	"renderer.context-menu.outermost":
+		"This topic is already at the outermost level.",
+	"renderer.context-menu.root-no-copy":
+		"The document root cannot be copied as a branch.",
+	"renderer.context-menu.root-no-sibling":
+		"The document root has no sibling position.",
+} as const;
+
+export const OBMIND_RENDERER_ZH_CN_MESSAGES = {
+	"renderer.canvas.aria": "思维导图画布",
+	"renderer.tree.aria": "思维导图主题",
+	"renderer.decorations.aria": "思维导图装饰",
+	"renderer.minimap.aria": "导航小地图",
+	"renderer.decoration.aria": "{kind}：{label}",
+	"renderer.decoration.kind.marker": "标记",
+	"renderer.decoration.kind.boundary": "边界",
+	"renderer.decoration.kind.relationship": "关联",
+	"renderer.decoration.kind.summary": "概要",
+	"renderer.error.already-mounted": "思维导图渲染器已挂载。",
+	"renderer.error.not-mounted": "渲染前必须先挂载思维导图渲染器。",
+	"renderer.error.unknown": "未知的思维导图渲染错误",
+	"renderer.editor.edit-node": "编辑节点",
+	"renderer.editor.edit-node-with-name": "编辑 {node}",
+	"renderer.editor.empty-text": "节点文本不能为空。",
+	"renderer.export.scene-unavailable": "当前思维导图场景尚未就绪，无法导出。",
+	"renderer.export.finish-editing-or-dragging":
+		"请先完成当前节点的编辑或拖拽，再导出。",
+	"renderer.export.cancelled": "已取消思维导图导出。",
+	"renderer.export.preparation-failed": "思维导图导出准备失败。",
+	"renderer.task.mark-complete": "标记任务为完成",
+	"renderer.task.mark-incomplete": "标记任务为未完成",
+	"renderer.task.aria": "{action}：{node}",
+	"renderer.topic.title":
+		"单击选中；再次单击或双击编辑。Cmd/Ctrl 单击可切换选择；Alt 单击可打开 Markdown 源码。",
+	"renderer.topic.aria": "{node}。选择主题；再次激活即可编辑。",
+	"renderer.link.group-aria": "{node} 中的链接",
+	"renderer.link.open-title": "打开{label}",
+	"renderer.link.open-aria": "打开链接笔记{label}",
+	"renderer.disclosure.expand-title": "展开 {node}；隐藏 {count} 个",
+	"renderer.disclosure.collapse-title": "收起 {node}",
+	"renderer.disclosure.none": "{node} 下没有隐藏的主题",
+	"renderer.disclosure.expand-aria": "展开 {node}；已隐藏 {count} 个后代。",
+	"renderer.disclosure.collapse-aria":
+		"收起 {node}；{directCount} 个直接子节点，共 {totalCount} 个后代。",
+	"renderer.context-menu.aria": "{node} 的操作",
+	"renderer.context-menu.edit-topic": "编辑主题",
+	"renderer.context-menu.add-child": "添加子主题",
+	"renderer.context-menu.add-sibling": "添加同级主题",
+	"renderer.context-menu.insert-parent": "插入父主题",
+	"renderer.context-menu.outdent": "提升主题层级",
+	"renderer.context-menu.copy-branch": "复制分支",
+	"renderer.context-menu.cut-branch": "剪切分支",
+	"renderer.context-menu.paste-child": "粘贴为子主题",
+	"renderer.context-menu.paste-sibling": "粘贴为同级主题",
+	"renderer.context-menu.delete-branch": "删除分支",
+	"renderer.context-menu.delete-topic-only": "仅删除主题",
+	"renderer.context-menu.open-source": "打开 Markdown 源码",
+	"renderer.context-menu.root-no-parent": "文档根节点不能拥有父主题。",
+	"renderer.context-menu.outermost": "此主题已经处于最外层。",
+	"renderer.context-menu.root-no-copy": "文档根节点不能作为分支复制。",
+	"renderer.context-menu.root-no-sibling": "文档根节点没有同级位置。",
+} as const satisfies Record<
+	keyof typeof OBMIND_RENDERER_EN_MESSAGES,
+	string
+>;

@@ -1,0 +1,48 @@
+{
+  "name": "obmind",
+  "version": "0.1.0",
+  "description": "An interactive mind-map view and inline topic editor for Markdown notes in Obsidian.",
+  "author": "Soren-ac",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Soren-ac/obmind.git"
+  },
+  "homepage": "https://github.com/Soren-ac/obmind#readme",
+  "bugs": {
+    "url": "https://github.com/Soren-ac/obmind/issues"
+  },
+  "main": "main.js",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "benchmark:export": "vitest bench benchmarks/export-scene.bench.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "build": "npm run typecheck && node esbuild.config.mjs --production",
+    "check": "npm run test && npm run lint && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^22.15.17",
+    "esbuild": "^0.25.5",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.4.1",
+    "globals": "^17.8.0",
+    "happy-dom": "^20.11.1",
+    "obsidian": "^1.13.1",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "pdf-lib": "^1.17.1"
+  }
+}

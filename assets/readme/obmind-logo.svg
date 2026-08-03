@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">ObMind</title>
+  <desc id="desc">A mind-map branch inside an open circular mark.</desc>
+  <defs>
+    <linearGradient id="background" x1="18" y1="14" x2="110" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B5CF6" />
+      <stop offset="1" stop-color="#4F46E5" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#background)" />
+  <path d="M76 26C44 16 20 37 20 64s24 48 56 38" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" />
+  <rect x="35" y="52" width="34" height="24" rx="8" fill="none" stroke="#fff" stroke-width="7" />
+  <path d="M69 64h9c9 0 9-20 19-20h5M78 64c9 0 9 20 19 20h5" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <rect x="98" y="38" width="16" height="12" rx="4" fill="#fff" />
+  <rect x="98" y="78" width="16" height="12" rx="4" fill="#fff" />
+</svg>

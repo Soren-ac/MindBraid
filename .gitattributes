@@ -1,0 +1,3 @@
+# main.js is generated. pdf-lib intentionally emits spaces before newlines in
+# PDF syntax template literals, so those physical trailing spaces are semantic.
+main.js whitespace=-trailing-space
