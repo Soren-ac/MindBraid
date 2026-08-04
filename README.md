@@ -28,11 +28,6 @@ structure and interactions.
 Styles control geometry and visual treatment; palettes change color only. The
 two axes can be combined independently from the sidebar.
 
-![MindBraid topic menu, collapsed branches, and appearance controls](assets/readme/showcase-topic-menu.png)
-
-Topic actions stay close to the canvas, while collapsed branches keep a visible
-descendant count so hidden structure is never ambiguous.
-
 ![A Markdown note rendered as an interactive MindBraid mind map in Obsidian](assets/readme/hero-light.png)
 
 ## Why MindBraid

@@ -26,10 +26,6 @@ MindBraid 是一个仅面向桌面端的 Obsidian 插件。它帮助你从视觉
 
 样式负责节点形态与视觉处理，配色只改变颜色；两者可在侧栏中独立组合。
 
-![MindBraid 节点菜单、折叠分支与外观设置](assets/readme/showcase-topic-menu.png)
-
-节点操作紧贴画布；分支收起后仍会显示隐藏后代数量，避免看不出结构是否被折叠。
-
 ![在 Obsidian 中使用 MindBraid 展示 Markdown 思维导图](assets/readme/hero-light.png)
 
 ## 为什么使用 MindBraid
