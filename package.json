@@ -1,6 +1,6 @@
 {
   "name": "obmind",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Turn Markdown notes into interactive, editable mind maps (思维导图) with layouts, themes, search, import, and export.",
   "author": "Soren-ac",
   "license": "MIT",
