@@ -6,9 +6,14 @@ import { parseMarkdown } from "../src/core/parser";
 import {
 	createDefaultMindMapInteractionState,
 	createDefaultMindMapPresentation,
+	literalColor,
 	type MindMapInteractionEvent,
+	type MindMapNodePresentation,
 } from "../src/presentation/presentation";
-import { DomSvgMindMapRenderer } from "../src/ui/renderer";
+import {
+	DomSvgMindMapRenderer,
+	type MindMapRenderInput,
+} from "../src/ui/renderer";
 
 afterEach(() => {
 	document.body.replaceChildren();
@@ -537,6 +542,243 @@ describe("DOM/SVG renderer canvas focus", () => {
 				nodeId: task.id,
 			}),
 		);
+		expect(interactions).not.toContainEqual(
+			expect.objectContaining({ type: "node-focus" }),
+		);
+		expect(interactions).not.toContainEqual(
+			expect.objectContaining({ type: "viewport-change" }),
+		);
+
+		renderer.destroy();
+	});
+});
+
+describe("DOM/SVG renderer node links", () => {
+	it("renders only Vault-local links inside the topic and preserves source indexes", () => {
+		const mindMap = parseMarkdown(
+			"# [Website](https://example.com) [Plan](Notes/Plan.md) [[Wiki]]",
+			"Map.md",
+			"Map",
+		);
+		const topic = mindMap.root.children[0];
+		if (topic === undefined) {
+			throw new Error("Renderer fixture is missing its linked topic node.");
+		}
+		const interactions: MindMapInteractionEvent[] = [];
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: (event) => interactions.push(event),
+		});
+		renderer.mount(container);
+		renderer.setViewActive(true);
+		const presentation = createDefaultMindMapPresentation("left-to-right");
+		const nodePresentations: ReadonlyMap<string, MindMapNodePresentation> =
+			new Map([
+				[
+					topic.id,
+					{
+						paddingInline: 13,
+						textColor: literalColor("#112233"),
+					},
+				],
+			]);
+		const renderInput: MindMapRenderInput = {
+			root: mindMap.root,
+			sourceRevision: mindMap.sourceRevision,
+			language: "zh-CN" as const,
+			colorScheme: "light" as const,
+			presentation: {
+				...presentation,
+				nodes: nodePresentations,
+			},
+			interaction: createDefaultMindMapInteractionState(),
+			topicCommandAvailability: {
+				hasInternalClipboard: false,
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+			},
+		};
+		renderer.render(renderInput);
+
+		const nodeElement = container.querySelector<HTMLElement>(
+			`[data-obmind-node-id="${topic.id}"]`,
+		);
+		const linkButtons = Array.from(
+			nodeElement?.querySelectorAll<HTMLButtonElement>(
+				".obmind-node-link",
+			) ?? [],
+		);
+		expect(linkButtons).toHaveLength(2);
+		expect(
+			linkButtons.map(({ dataset }) => dataset.obmindNodeLinkIndex),
+		).toEqual(["1", "2"]);
+		expect(
+			linkButtons.every(
+				(button) => button.querySelector(".obmind-node-link-icon") !== null,
+			),
+		).toBe(true);
+		expect(nodeElement?.classList.contains("obmind-node-has-links")).toBe(
+			true,
+		);
+		expect(
+			nodeElement?.style.getPropertyValue("--obmind-node-link-reserve"),
+		).toBe("42px");
+		expect(
+			nodeElement?.style.getPropertyValue("--obmind-node-link-color"),
+		).toBe("#112233");
+		expect(
+			nodeElement?.style.getPropertyValue("--obmind-node-link-inset"),
+		).toBe("13px");
+		expect(
+			nodeElement?.style.getPropertyValue(
+				"--obmind-node-link-control-size",
+			),
+		).toBe("18px");
+		expect(
+			nodeElement?.style.getPropertyValue(
+				"--obmind-node-link-control-gap",
+			),
+		).toBe("2px");
+		expect(
+			nodeElement?.style.getPropertyValue("--obmind-node-link-label-gap"),
+		).toBe("4px");
+
+		linkButtons[0]?.click();
+		expect(interactions).toContainEqual({
+			type: "node-link-activate",
+			nodeId: topic.id,
+			linkIndex: 1,
+		});
+		expect(
+			interactions.some(
+				(event) =>
+					event.type === "node-link-activate" && event.linkIndex === 0,
+			),
+		).toBe(false);
+
+		expect(renderer.beginNodeEdit(topic.id)).toBe(true);
+		expect(nodeElement?.classList.contains("obmind-node-editing")).toBe(true);
+		renderer.render({
+			...renderInput,
+			interaction: {
+				...renderInput.interaction,
+				hoveredNodeId: topic.id,
+			},
+		});
+		const links = nodeElement?.querySelector<HTMLElement>(
+			".obmind-node-links",
+		);
+		expect(links?.hidden).toBe(false);
+		expect(nodeElement?.classList.contains("obmind-node-has-links")).toBe(
+			true,
+		);
+		expect(
+			nodeElement?.style.getPropertyValue("--obmind-node-link-reserve"),
+		).toBe("42px");
+		const editor = nodeElement?.querySelector<HTMLTextAreaElement>(
+			".obmind-node-editor",
+		);
+		if (editor === null || editor === undefined) {
+			throw new Error("Expected the inline topic editor.");
+		}
+		editor.value = "";
+		editor.dispatchEvent(new Event("input", { bubbles: true }));
+		editor.dispatchEvent(
+			new KeyboardEvent("keydown", {
+				bubbles: true,
+				cancelable: true,
+				key: "Enter",
+			}),
+		);
+		expect(editor.getAttribute("aria-invalid")).toBe("true");
+		expect(
+			nodeElement?.classList.contains("obmind-node-edit-invalid"),
+		).toBe(true);
+		editor.value = topic.text;
+		editor.dispatchEvent(new Event("input", { bubbles: true }));
+		expect(editor.hasAttribute("aria-invalid")).toBe(false);
+		expect(
+			nodeElement?.classList.contains("obmind-node-edit-invalid"),
+		).toBe(false);
+		editor?.dispatchEvent(
+			new KeyboardEvent("keydown", {
+				bubbles: true,
+				cancelable: true,
+				key: "Escape",
+			}),
+		);
+		expect(nodeElement?.classList.contains("obmind-node-editing")).toBe(
+			false,
+		);
+		expect(links?.hidden).toBe(false);
+		expect(nodeElement?.classList.contains("obmind-node-has-links")).toBe(
+			true,
+		);
+
+		interactions.length = 0;
+		links
+			?.querySelector<HTMLButtonElement>(
+				'[data-obmind-node-link-index="2"]',
+			)
+			?.click();
+		expect(interactions).toContainEqual({
+			type: "node-link-activate",
+			nodeId: topic.id,
+			linkIndex: 2,
+		});
+		renderer.destroy();
+	});
+
+	it("keeps an external-only Markdown link as readable topic text without an action", () => {
+		const mindMap = parseMarkdown(
+			"# [Website](https://example.com)",
+			"Map.md",
+			"Map",
+		);
+		const topic = mindMap.root.children[0];
+		if (topic === undefined) {
+			throw new Error("Renderer fixture is missing its external-link topic.");
+		}
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: () => undefined,
+		});
+		renderer.mount(container);
+		renderer.render({
+			root: mindMap.root,
+			sourceRevision: mindMap.sourceRevision,
+			language: "zh-CN",
+			colorScheme: "dark",
+			presentation: createDefaultMindMapPresentation("left-to-right"),
+			interaction: createDefaultMindMapInteractionState(),
+			topicCommandAvailability: {
+				hasInternalClipboard: false,
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+			},
+		});
+
+		const nodeElement = container.querySelector<HTMLElement>(
+			`[data-obmind-node-id="${topic.id}"]`,
+		);
+		expect(
+			nodeElement?.querySelector(".obmind-node-label")?.textContent,
+		).toBe("Website");
+		expect(nodeElement?.querySelector(".obmind-node-link")).toBeNull();
+		expect(nodeElement?.classList.contains("obmind-node-has-links")).toBe(
+			false,
+		);
+		expect(
+			nodeElement?.style.getPropertyValue("--obmind-node-link-reserve"),
+		).toBe("");
 
 		renderer.destroy();
 	});

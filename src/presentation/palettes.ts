@@ -9,10 +9,16 @@ import {
 } from "./presentation";
 
 export const PENCIL_SKETCH_PALETTE_ID = "pencil-sketch";
-export const CLOUD_PALETTE_ID = "cloud";
+/** Retired palette IDs that stay reserved for persisted-data migration. */
+export const LEGACY_MIND_MAP_PALETTE_IDS: readonly string[] = Object.freeze([
+  "cloud",
+]);
 export const COLORFUL_PALETTE_ID = "colorful";
 export const MORANDI_MINT_PALETTE_ID = "morandi-mint";
 export const RETRO_AUTUMN_PALETTE_ID = "retro-autumn";
+export const COASTAL_INK_PALETTE_ID = "coastal-ink";
+export const DEEP_LAGOON_PALETTE_ID = "deep-lagoon";
+export const CORAL_TIDE_PALETTE_ID = "coral-tide";
 export const DEFAULT_MIND_MAP_PALETTE_ID = COLORFUL_PALETTE_ID;
 
 /**
@@ -21,10 +27,12 @@ export const DEFAULT_MIND_MAP_PALETTE_ID = COLORFUL_PALETTE_ID;
  * The stable IDs above retain compatibility with existing persisted data.
  */
 export const GRAPHITE_PALETTE_LABEL = "Graphite";
-export const AURORA_PALETTE_LABEL = "Aurora";
 export const SPECTRUM_PALETTE_LABEL = "Spectrum";
 export const MORANDI_MINT_PALETTE_LABEL = "Morandi Mint";
 export const RETRO_AUTUMN_PALETTE_LABEL = "Retro Autumn";
+export const COASTAL_INK_PALETTE_LABEL = "Coastal Ink";
+export const DEEP_LAGOON_PALETTE_LABEL = "Deep Lagoon";
+export const CORAL_TIDE_PALETTE_LABEL = "Coral Tide";
 
 export interface MindMapPaletteRegistry {
   list(): readonly MindMapPaletteSpec[];
@@ -73,47 +81,6 @@ export function createPencilSketchPaletteSpec(): MindMapPaletteSpec {
       border: hostColor("text-muted"),
       borderHover: hostColor("text-normal"),
       accent: hostColor("interactive-accent"),
-      edge: hostColor("text-muted"),
-    },
-  });
-}
-
-export function createCloudPaletteSpec(): MindMapPaletteSpec {
-  return createDefaultMindMapPaletteSpec({
-    id: CLOUD_PALETTE_ID,
-    label: AURORA_PALETTE_LABEL,
-    revision: "cloud-palette-v1",
-    colors: {
-      canvas: hostColor("background-primary"),
-      surface: hostColor("background-primary"),
-      surfaceEmphasis: hostColor("background-secondary"),
-      surfaceHover: hostColor("background-modifier-hover"),
-      text: hostColor("text-normal"),
-      textOnAccent: hostColor("text-on-accent"),
-      textMuted: hostColor("text-muted"),
-      border: hostColor("background-modifier-border"),
-      borderHover: hostColor("text-muted"),
-      accent: hostColor("interactive-accent"),
-      edge: hostColor("text-faint"),
-      selection: hostColor("background-modifier-border-focus"),
-      branchPalette: [
-        hostColor("color-blue"),
-        hostColor("color-green"),
-        hostColor("color-orange"),
-        hostColor("color-red"),
-        hostColor("color-purple"),
-        hostColor("color-cyan"),
-      ],
-    },
-    roles: {
-      root: {
-        fill: hostColor("interactive-accent"),
-        stroke: hostColor("interactive-accent"),
-        textColor: hostColor("text-on-accent"),
-      },
-    },
-    lightColors: {
-      surface: hostColor("background-secondary"),
       edge: hostColor("text-muted"),
     },
   });
@@ -302,6 +269,231 @@ export function createRetroAutumnPaletteSpec(): MindMapPaletteSpec {
   });
 }
 
+/**
+ * Cool marine ink colors with a deliberately dark companion. The palette
+ * keeps the color-only contract: node treatments remain owned by the selected
+ * Style, while the palette supplies readable surfaces, roles, and branches.
+ */
+export function createCoastalInkPaletteSpec(): MindMapPaletteSpec {
+  return createDefaultMindMapPaletteSpec({
+    id: COASTAL_INK_PALETTE_ID,
+    label: COASTAL_INK_PALETTE_LABEL,
+    revision: "coastal-ink-palette-v1",
+    colors: {
+      canvas: literalColor("#171C22"),
+      surface: literalColor("#222831"),
+      surfaceEmphasis: literalColor("#00ADB5"),
+      surfaceHover: literalColor("#303B47"),
+      text: literalColor("#F1F5F9"),
+      textOnAccent: literalColor("#10262A"),
+      textMuted: literalColor("#B7C5D1"),
+      border: literalColor("#4C5A67"),
+      borderHover: literalColor("#7C90A2"),
+      accent: literalColor("#00ADB5"),
+      edge: literalColor("#7B97A6"),
+      selection: literalColor("#6ADBE0"),
+      branchPalette: literalPaletteColors([
+        "#00ADB5",
+        "#4AA3DF",
+        "#A78BFA",
+        "#F0A35E",
+        "#E879A7",
+        "#79C99E",
+        "#D5B66F",
+        "#78B7B9",
+      ]),
+    },
+    roles: {
+      root: {
+        fill: literalColor("#00ADB5"),
+        stroke: literalColor("#6ADBE0"),
+        textColor: literalColor("#10262A"),
+      },
+    },
+    lightColors: {
+      canvas: literalColor("#F9FBFC"),
+      surface: literalColor("#FFFFFF"),
+      surfaceEmphasis: literalColor("#3F72AF"),
+      surfaceHover: literalColor("#EEF4F8"),
+      text: literalColor("#112D4E"),
+      textOnAccent: literalColor("#FFFFFF"),
+      textMuted: literalColor("#526779"),
+      border: literalColor("#DBE2EF"),
+      borderHover: literalColor("#8AA8C6"),
+      accent: literalColor("#3F72AF"),
+      edge: literalColor("#5E7F9F"),
+      selection: literalColor("#6EA8D5"),
+      branchPalette: literalPaletteColors([
+        "#3F72AF",
+        "#277DA1",
+        "#19766F",
+        "#B05A79",
+        "#A85E22",
+        "#7868B5",
+        "#537A3F",
+        "#3C7897",
+      ]),
+    },
+    lightRoles: {
+      root: {
+        fill: literalColor("#3F72AF"),
+        stroke: literalColor("#3F72AF"),
+        textColor: literalColor("#FFFFFF"),
+      },
+    },
+  });
+}
+
+/**
+ * Violet water and turquoise highlights. The light and dark definitions are
+ * separate semantic palettes rather than CSS inversion, so their text and
+ * primary-topic combinations remain readable in both host schemes.
+ */
+export function createDeepLagoonPaletteSpec(): MindMapPaletteSpec {
+  return createDefaultMindMapPaletteSpec({
+    id: DEEP_LAGOON_PALETTE_ID,
+    label: DEEP_LAGOON_PALETTE_LABEL,
+    revision: "deep-lagoon-palette-v1",
+    colors: {
+      canvas: literalColor("#241A33"),
+      surface: literalColor("#321E48"),
+      surfaceEmphasis: literalColor("#65DCD5"),
+      surfaceHover: literalColor("#3B2B54"),
+      text: literalColor("#D9FFF4"),
+      textOnAccent: literalColor("#153A3A"),
+      textMuted: literalColor("#B8D6D1"),
+      border: literalColor("#5C4D70"),
+      borderHover: literalColor("#8879A2"),
+      accent: literalColor("#65DCD5"),
+      edge: literalColor("#83B6B5"),
+      selection: literalColor("#9E8BE0"),
+      branchPalette: literalPaletteColors([
+        "#65DCD5",
+        "#9A7ED2",
+        "#6EA6D1",
+        "#D796B8",
+        "#E6AD63",
+        "#82BE9A",
+        "#C891D5",
+        "#7FC5C1",
+      ]),
+    },
+    roles: {
+      root: {
+        fill: literalColor("#65DCD5"),
+        stroke: literalColor("#65DCD5"),
+        textColor: literalColor("#153A3A"),
+      },
+    },
+    lightColors: {
+      canvas: literalColor("#F7FFFC"),
+      surface: literalColor("#FFFFFF"),
+      surfaceEmphasis: literalColor("#43637E"),
+      surfaceHover: literalColor("#E9F7F3"),
+      text: literalColor("#21354A"),
+      textOnAccent: literalColor("#FFFFFF"),
+      textMuted: literalColor("#5D7284"),
+      border: literalColor("#C7E6DE"),
+      borderHover: literalColor("#78A8A3"),
+      accent: literalColor("#43637E"),
+      edge: literalColor("#5A8587"),
+      selection: literalColor("#8470BD"),
+      branchPalette: literalPaletteColors([
+        "#43637E",
+        "#216F70",
+        "#7764AE",
+        "#A8557C",
+        "#9E5B2A",
+        "#41765B",
+        "#83569C",
+        "#2C6E90",
+      ]),
+    },
+    lightRoles: {
+      root: {
+        fill: literalColor("#43637E"),
+        stroke: literalColor("#43637E"),
+        textColor: literalColor("#FFFFFF"),
+      },
+    },
+  });
+}
+
+/**
+ * A warm peach, sea-glass, and blue palette. Its dark companion preserves the
+ * source palette's soft character while using a deliberately dark foreground
+ * for the peach root and sea-glass primary topics.
+ */
+export function createCoralTidePaletteSpec(): MindMapPaletteSpec {
+  return createDefaultMindMapPaletteSpec({
+    id: CORAL_TIDE_PALETTE_ID,
+    label: CORAL_TIDE_PALETTE_LABEL,
+    revision: "coral-tide-palette-v1",
+    colors: {
+      canvas: literalColor("#211A22"),
+      surface: literalColor("#302634"),
+      surfaceEmphasis: literalColor("#FFB6A6"),
+      surfaceHover: literalColor("#40313F"),
+      text: literalColor("#FFF3ED"),
+      textOnAccent: literalColor("#2C1E28"),
+      textMuted: literalColor("#D3BBC4"),
+      border: literalColor("#5B4855"),
+      borderHover: literalColor("#937583"),
+      accent: literalColor("#FFB6A6"),
+      edge: literalColor("#C496A9"),
+      selection: literalColor("#67A2C5"),
+      branchPalette: literalPaletteColors([
+        "#FFB6A6",
+        "#9BCEC1",
+        "#67A2C5",
+        "#D7A4DF",
+        "#E9C46A",
+        "#E5989B",
+        "#A7C7E7",
+        "#D6B18A",
+      ]),
+    },
+    roles: {
+      root: {
+        fill: literalColor("#FFB6A6"),
+        stroke: literalColor("#FFCFBF"),
+        textColor: literalColor("#2C1E28"),
+      },
+    },
+    lightColors: {
+      canvas: literalColor("#FFFCF8"),
+      surface: literalColor("#FFF7F0"),
+      surfaceEmphasis: literalColor("#336A91"),
+      surfaceHover: literalColor("#FFF0E5"),
+      text: literalColor("#3D2B35"),
+      textOnAccent: literalColor("#FFFFFF"),
+      textMuted: literalColor("#7C6670"),
+      border: literalColor("#F0D9CB"),
+      borderHover: literalColor("#D7A3A0"),
+      accent: literalColor("#336A91"),
+      edge: literalColor("#9D7286"),
+      selection: literalColor("#67A2C5"),
+      branchPalette: literalPaletteColors([
+        "#336A91",
+        "#2E716B",
+        "#A04663",
+        "#7B4E94",
+        "#965C22",
+        "#4B744F",
+        "#9F4F43",
+        "#3D6988",
+      ]),
+    },
+    lightRoles: {
+      root: {
+        fill: literalColor("#336A91"),
+        stroke: literalColor("#336A91"),
+        textColor: literalColor("#FFFFFF"),
+      },
+    },
+  });
+}
+
 export function createMindMapPaletteRegistry(
   palettes: readonly MindMapPaletteSpec[],
   defaultPaletteId: string,
@@ -347,10 +539,12 @@ export function createMindMapPaletteRegistry(
 export const BUILT_IN_MIND_MAP_PALETTE_SPECS: readonly MindMapPaletteSpec[] =
   Object.freeze([
     createPencilSketchPaletteSpec(),
-    createCloudPaletteSpec(),
     createColorfulPaletteSpec(),
     createMorandiMintPaletteSpec(),
     createRetroAutumnPaletteSpec(),
+    createCoastalInkPaletteSpec(),
+    createDeepLagoonPaletteSpec(),
+    createCoralTidePaletteSpec(),
   ]);
 
 const BUILT_IN_MIND_MAP_PALETTE_IDS = new Set(
@@ -360,6 +554,17 @@ const BUILT_IN_MIND_MAP_PALETTE_IDS = new Set(
 export function isBuiltInMindMapPaletteId(value: unknown): value is string {
   return (
     typeof value === "string" && BUILT_IN_MIND_MAP_PALETTE_IDS.has(value)
+  );
+}
+
+/**
+ * Legacy palette IDs are never selectable again, so custom libraries cannot
+ * repurpose a persisted ID whose historical meaning is still migrated.
+ */
+export function isLegacyMindMapPaletteId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    LEGACY_MIND_MAP_PALETTE_IDS.includes(value)
   );
 }
 

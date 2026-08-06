@@ -5,13 +5,11 @@ import {
 import type { MindMapRenderEffectResolver } from "./render-effects";
 import {
   BUILT_IN_MIND_MAP_PALETTE_SPECS,
-  CLOUD_PALETTE_ID,
   COLORFUL_PALETTE_ID,
   DEFAULT_MIND_MAP_PALETTE_ID,
   MORANDI_MINT_PALETTE_ID,
   PENCIL_SKETCH_PALETTE_ID,
   RETRO_AUTUMN_PALETTE_ID,
-  createCloudPaletteSpec,
   createColorfulPaletteSpec,
   createMindMapPaletteRegistry,
   createPencilSketchPaletteSpec,
@@ -19,10 +17,14 @@ import {
 } from "./palettes";
 import {
   BUILT_IN_MIND_MAP_STYLE_SPECS,
+  ATLAS_CARDS_STYLE_ID,
+  CHARCOAL_STYLE_ID,
   CLOUD_STYLE_ID,
   COLORFUL_STYLE_ID,
   DEFAULT_MIND_MAP_STYLE_ID,
   PENCIL_SKETCH_STYLE_ID,
+  SWISS_EDITORIAL_STYLE_ID,
+  TECHNICAL_DRAFT_STYLE_ID,
   createCloudStyleSpec,
   createColorfulStyleSpec,
   createMindMapStyleRegistry,
@@ -44,7 +46,8 @@ export interface LegacyMindMapThemeSelection {
 export {
   BUILT_IN_MIND_MAP_PALETTE_SPECS,
   BUILT_IN_MIND_MAP_STYLE_SPECS,
-  CLOUD_PALETTE_ID,
+  ATLAS_CARDS_STYLE_ID,
+  CHARCOAL_STYLE_ID,
   CLOUD_STYLE_ID,
   COLORFUL_PALETTE_ID,
   COLORFUL_STYLE_ID,
@@ -54,6 +57,8 @@ export {
   PENCIL_SKETCH_PALETTE_ID,
   PENCIL_SKETCH_STYLE_ID,
   RETRO_AUTUMN_PALETTE_ID,
+  SWISS_EDITORIAL_STYLE_ID,
+  TECHNICAL_DRAFT_STYLE_ID,
 };
 
 /**
@@ -102,7 +107,7 @@ export function createMindMapThemeCompositionRegistry(
   };
 }
 
-/** Matching-pair helpers preserve the visual output of pre-split themes. */
+/** Legacy theme helpers preserve maintained styles during split-theme migration. */
 export function createPencilSketchThemeSpec(): MindMapThemeSpec {
   return composeMindMapTheme(
     createPencilSketchStyleSpec(),
@@ -113,7 +118,7 @@ export function createPencilSketchThemeSpec(): MindMapThemeSpec {
 export function createCloudThemeSpec(): MindMapThemeSpec {
   return composeMindMapTheme(
     createCloudStyleSpec(),
-    createCloudPaletteSpec(),
+    createColorfulPaletteSpec(),
   );
 }
 
@@ -134,15 +139,14 @@ export const BUILT_IN_MIND_MAP_THEME_SPECS: readonly MindMapThemeSpec[] =
 export function isBuiltInMindMapThemeId(value: unknown): value is string {
   return (
     typeof value === "string" &&
-    BUILT_IN_MIND_MAP_STYLE_SPECS.some(({ id }) => id === value) &&
-    BUILT_IN_MIND_MAP_PALETTE_SPECS.some(({ id }) => id === value)
+    [PENCIL_SKETCH_THEME_ID, CLOUD_THEME_ID, COLORFUL_THEME_ID].includes(value)
   );
 }
 
 /**
  * Converts the pre-split theme vocabulary without losing safe unknown IDs in
  * document annotations. `obsidian-native` was removed before this milestone;
- * its closest maintained clean preset is Cloud.
+ * its closest maintained clean preset is Organic Classic.
  */
 export function migrateLegacyMindMapThemeId(
   themeId: string,
@@ -150,6 +154,12 @@ export function migrateLegacyMindMapThemeId(
   const migratedId = themeId === "obsidian-native" ? CLOUD_STYLE_ID : themeId;
   return {
     styleId: migratedId,
-    paletteId: migratedId,
+    // Aurora (`cloud`) is retired as a selectable palette. Preserve the
+    // independently maintained Organic Classic style while moving legacy matching-theme
+    // data onto the active default color scheme.
+    paletteId:
+      migratedId === CLOUD_STYLE_ID
+        ? DEFAULT_MIND_MAP_PALETTE_ID
+        : migratedId,
   };
 }

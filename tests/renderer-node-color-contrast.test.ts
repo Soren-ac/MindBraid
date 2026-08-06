@@ -11,7 +11,13 @@ import {
 } from "../src/presentation/presentation";
 import { DomSvgMindMapRenderer } from "../src/ui/renderer";
 
-const MINIMUM_DEFAULT_TOPIC_TEXT_CONTRAST = 3;
+const MINIMUM_LEGACY_TOPIC_TEXT_CONTRAST = 3;
+const MINIMUM_NEW_PALETTE_TOPIC_TEXT_CONTRAST = 4.5;
+const CONTRAST_SAFE_PALETTE_IDS = new Set([
+	"coastal-ink",
+	"deep-lagoon",
+	"coral-tide",
+]);
 const BRANCH_SAMPLE_COUNT = 8;
 
 /**
@@ -89,24 +95,30 @@ afterEach(() => {
 describe("built-in node color contrast", () => {
 	it("keeps default topic text above the minimum contrast threshold for every style, palette, and scheme", () => {
 		const composition = BUILT_IN_MIND_MAP_FRONTEND_COMPOSITION;
-		expect(composition.capabilities.styles).toHaveLength(3);
-		expect(composition.capabilities.palettes).toHaveLength(5);
+		expect(composition.capabilities.styles).toHaveLength(7);
+		expect(composition.capabilities.palettes).toHaveLength(7);
 
 		const violations: string[] = [];
 		for (const colorScheme of ["light", "dark"] as const) {
 			for (const style of composition.capabilities.styles) {
 				for (const palette of composition.capabilities.palettes) {
+					const minimumContrast = CONTRAST_SAFE_PALETTE_IDS.has(
+						palette.id,
+					)
+						? MINIMUM_NEW_PALETTE_TOPIC_TEXT_CONTRAST
+						: MINIMUM_LEGACY_TOPIC_TEXT_CONTRAST;
 					for (const topic of renderBuiltInTopicColorSamples(
 						style.id,
 						palette.id,
 						colorScheme,
 					)) {
 						const contrast = contrastRatio(topic.text, topic.background);
-						if (contrast < MINIMUM_DEFAULT_TOPIC_TEXT_CONTRAST) {
+						if (contrast < minimumContrast) {
 							violations.push(
 								[
 									`${style.id}/${palette.id}/${colorScheme}/${topic.role}`,
 									`contrast ${contrast.toFixed(2)}`,
+									`minimum ${minimumContrast.toFixed(1)}`,
 									`shape ${topic.shape ?? "default"}`,
 									`text ${topic.textCss}`,
 									`fill ${topic.fillCss}`,

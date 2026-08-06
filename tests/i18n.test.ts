@@ -98,12 +98,52 @@ describe("ObMind internationalization", () => {
 			chinese.palettes.find(({ id }) => id === "morandi-mint")?.label,
 		).toBe("莫兰迪薄荷");
 		expect(
+			chinese.palettes.find(({ id }) => id === "coastal-ink")?.label,
+		).toBe("海岸墨色");
+		expect(
+			chinese.palettes.find(({ id }) => id === "deep-lagoon")?.label,
+		).toBe("深海潟湖");
+		expect(
+			chinese.palettes.find(({ id }) => id === "coral-tide")?.label,
+		).toBe("珊瑚潮汐");
+		expect(
+			english.palettes.find(({ id }) => id === "coastal-ink")?.label,
+		).toBe("Coastal Ink");
+		expect(
+			english.palettes.find(({ id }) => id === "deep-lagoon")?.label,
+		).toBe("Deep Lagoon");
+		expect(
+			english.palettes.find(({ id }) => id === "coral-tide")?.label,
+		).toBe("Coral Tide");
+		expect(
 			chinese.connectorProfiles.find(({ id }) => id === "uniform")
 				?.label,
 		).toBe("等宽");
 		expect(
 			chinese.renderEffects.find(({ id }) => id === "paper-grain")?.label,
 		).toBe("纸张纹理");
+		expect(chinese.styles.find(({ id }) => id === "cloud")?.label).toBe(
+			"经典有机",
+		);
+		expect(
+			chinese.styles.find(({ id }) => id === "swiss-editorial")?.label,
+		).toBe("瑞士编辑风");
+		expect(
+			english.styles.find(({ id }) => id === "atlas-cards")?.label,
+		).toBe("Atlas Cards");
+		expect(
+			chinese.styles.find(({ id }) => id === "technical-draft")?.label,
+		).toBe("技术制图");
+		expect(english.styles.find(({ id }) => id === "charcoal")?.label).toBe(
+			"Charcoal",
+		);
+		expect(
+			chinese.renderEffects.find(({ id }) => id === "technical-grid")
+				?.label,
+		).toBe("工程网格");
+		expect(
+			english.renderEffects.find(({ id }) => id === "charcoal-edge")?.label,
+		).toBe("Charcoal connector");
 	});
 
 	it("provides translation keys for every built-in capability label", () => {

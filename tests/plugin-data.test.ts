@@ -201,6 +201,45 @@ describe("plugin data envelope", () => {
 		});
 	});
 
+	it("rejects the retired cloud palette ID from custom libraries", () => {
+		const retiredPalette = {
+			...createDefaultMindMapPaletteSpec({
+				id: "cloud",
+				label: "Retired Aurora",
+			}),
+			revision: 1,
+		};
+		const validPalette = {
+			...createDefaultMindMapPaletteSpec({
+				id: "custom-palette-1",
+				label: "Custom colors",
+			}),
+			revision: 1,
+		};
+
+		const result = normalizeObMindPluginData({
+			version: OBMIND_PLUGIN_DATA_VERSION,
+			settings: {
+				...DEFAULT_SETTINGS,
+				paletteId: "cloud",
+			},
+			annotations: createAnnotationStore(),
+			presentationLibrary: {
+				version: 1,
+				nextStyleOrdinal: 1,
+				nextPaletteOrdinal: 1,
+				styles: [],
+				palettes: [retiredPalette, validPalette],
+			},
+		});
+
+		expect(result.migrated).toBe(true);
+		expect(result.data.presentationLibrary.palettes.map(({ id }) => id)).toEqual([
+			"custom-palette-1",
+		]);
+		expect(result.data.settings.paletteId).toBe("colorful");
+	});
+
 	it("preserves valid custom siblings that follow malformed records in an older library payload", () => {
 		const validStyle = {
 			...createDefaultMindMapStyleSpec({

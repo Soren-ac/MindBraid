@@ -751,6 +751,24 @@ function cloneExportPaint(paint: MindMapExportPaint): MindMapExportPaint {
 				opacity: requireOpacity(paint.opacity, "Export hatch opacity"),
 				angle: requireFiniteNumber(paint.angle, "Export hatch angle"),
 			};
+		case "speckle":
+			return {
+				kind: "speckle",
+				background: requireExportColor(
+					paint.background,
+					"Export speckle background",
+				),
+				color: requireExportColor(paint.color, "Export speckle color"),
+				gap: requirePositiveNumber(paint.gap, "Export speckle gap"),
+				radius: requirePositiveNumber(
+					paint.radius,
+					"Export speckle radius",
+				),
+				opacity: requireOpacity(
+					paint.opacity,
+					"Export speckle opacity",
+				),
+			};
 	}
 }
 

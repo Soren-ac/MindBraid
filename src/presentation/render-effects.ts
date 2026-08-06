@@ -11,6 +11,27 @@ export const PENCIL_DOUBLE_STROKE_EFFECT_ID = "pencil-double";
 export const PENCIL_HATCH_EFFECT_ID = "pencil-hatch";
 export const PENCIL_EDGE_EFFECT_ID = "pencil-edge";
 export const PENCIL_DOT_EFFECT_ID = "pencil-dot";
+/** Precise graph-paper texture used by the Technical Draft style. */
+export const TECHNICAL_GRID_EFFECT_ID = "technical-grid";
+/** Dry paper grain used by the Charcoal style. */
+export const CHARCOAL_PAPER_EFFECT_ID = "charcoal-paper";
+/** Deterministic single-pass charcoal contour. */
+export const CHARCOAL_STROKE_EFFECT_ID = "charcoal-stroke";
+/** Shared live, preview, and export cadence for the dry charcoal contour. */
+export const CHARCOAL_CONTOUR_DASH_ARRAY = Object.freeze([
+  19,
+  1.3,
+  7,
+  0.7,
+  29,
+  1.1,
+] as const);
+/** Subtle charcoal dust/shading inside topics. */
+export const CHARCOAL_FILL_EFFECT_ID = "charcoal-fill";
+/** Deterministic charcoal branch stroke. */
+export const CHARCOAL_EDGE_EFFECT_ID = "charcoal-edge";
+/** Terminal dot treatment shared by Charcoal leaf connectors. */
+export const CHARCOAL_DOT_EFFECT_ID = "charcoal-dot";
 
 export interface MindMapRenderEffectCapability {
   readonly id: string;

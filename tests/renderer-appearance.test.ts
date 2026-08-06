@@ -4,19 +4,28 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BUILT_IN_MIND_MAP_FRONTEND_COMPOSITION } from "../src/application/composition/built-in-composition";
 import { BILATERAL_TREE_LAYOUT_ENGINE_ID } from "../src/layout/bilateral-layout";
-import type { MindMapExportPathPrimitive } from "../src/export/types";
+import type {
+	MindMapExportCirclePrimitive,
+	MindMapExportEllipsePrimitive,
+	MindMapExportPathPrimitive,
+	MindMapExportRectPrimitive,
+} from "../src/export/types";
+import { serializeMindMapExportSceneToSvg } from "../src/export/svg";
 import { parseMarkdown } from "../src/core/parser";
 import {
 	createDefaultMindMapInteractionState,
 	createDefaultMindMapPresentation,
+	createDefaultMindMapPaletteSpec,
 	createDefaultMindMapThemeSpec,
 	createMindMapRenderEffectRef,
+	composeMindMapTheme,
 	literalColor,
 	resolveMindMapThemeColors,
 	type MindMapInteractionEvent,
 	type MindMapThemeColor,
 } from "../src/presentation/presentation";
 import { PENCIL_DOT_EFFECT_ID } from "../src/presentation/render-effects";
+import { createAtlasCardsStyleSpec } from "../src/presentation/styles";
 import { DomSvgMindMapRenderer } from "../src/ui/renderer";
 import { createMindMapTaskCheckmarkPathData } from "../src/presentation/task-control";
 
@@ -25,6 +34,94 @@ afterEach(() => {
 });
 
 describe("DOM/SVG renderer appearance", () => {
+	it("renders Atlas Cards with branch-colored first topics and surface subtopics", () => {
+		const mindMap = parseMarkdown(
+			"# Strategy\n## Research\n### Notes",
+			"Atlas.md",
+			"Atlas",
+		);
+		const mainTopic = mindMap.root.children[0];
+		const subtopic = mainTopic?.children[0];
+		const deeperSubtopic = subtopic?.children[0];
+		if (
+			mainTopic === undefined ||
+			subtopic === undefined ||
+			deeperSubtopic === undefined
+		) {
+			throw new Error("Expected a three-level Atlas fixture.");
+		}
+
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: () => undefined,
+		});
+		renderer.mount(container);
+		const presentation = createDefaultMindMapPresentation("left-to-right");
+		const theme = composeMindMapTheme(
+			createAtlasCardsStyleSpec(),
+			createDefaultMindMapPaletteSpec({
+				id: "atlas-appearance",
+				label: "Atlas appearance",
+				colors: {
+					canvas: literalColor("#fffdf9"),
+					surface: literalColor("#f4f0e8"),
+					surfaceEmphasis: literalColor("#e8d2ba"),
+					text: literalColor("#302820"),
+					textOnAccent: literalColor("#ffffff"),
+					border: literalColor("#d8cbbd"),
+					edge: literalColor("#ad9885"),
+					branchPalette: [literalColor("#d97c5a")],
+				},
+				roles: {
+					root: {
+						fill: literalColor("#e8d2ba"),
+						stroke: literalColor("#c7a883"),
+						textColor: literalColor("#302820"),
+					},
+				},
+			}),
+		);
+		renderer.render({
+			root: mindMap.root,
+			sourceRevision: mindMap.sourceRevision,
+			language: "zh-CN",
+			colorScheme: "light",
+			presentation: { ...presentation, theme },
+			interaction: createDefaultMindMapInteractionState(),
+			topicCommandAvailability: {
+				hasInternalClipboard: false,
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+			},
+		});
+
+		const getTopicFill = (nodeId: string): string => {
+			const content = container.querySelector<HTMLElement>(
+				`[data-obmind-node-id="${nodeId}"] .obmind-node-content`,
+			);
+			if (content === null) {
+				throw new Error(`Expected topic ${nodeId} to be rendered.`);
+			}
+			return content.style.getPropertyValue("--obmind-node-fill");
+		};
+
+		expect(getTopicFill(mainTopic.id)).toBe("#d97c5a");
+		expect(getTopicFill(subtopic.id)).toBe("#f4f0e8");
+		expect(getTopicFill(deeperSubtopic.id)).toBe("#f4f0e8");
+		const edge = container.querySelector<SVGPathElement>(".obmind-edge");
+		if (edge === null) {
+			throw new Error("Expected Atlas to render an edge.");
+		}
+		expect(edge.style.stroke).toBe("#d97c5a");
+		expect(edge.getAttribute("d")).not.toMatch(/[CQ]/u);
+
+		renderer.destroy();
+	});
+
 	it("keeps the collapsed center topic disclosure available for expansion", () => {
 		const mindMap = parseMarkdown(
 			"# First\n## Child\n# Second",
@@ -324,6 +421,77 @@ describe("DOM/SVG renderer appearance", () => {
 				"complete",
 			]),
 		);
+		expect(
+			container.querySelector(".obmind-export-measure-layer"),
+		).toBeNull();
+
+		renderer.destroy();
+	});
+
+	it("remeasures linked topics for visible exports without reserving omitted link controls", async () => {
+		const mindMap = parseMarkdown(
+			"# [Plan](Notes/Plan.md)",
+			"Map.md",
+			"Map",
+		);
+		const topic = mindMap.root.children[0];
+		if (topic === undefined) {
+			throw new Error("Expected a linked topic.");
+		}
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: () => undefined,
+		});
+		renderer.mount(container);
+		renderer.render({
+			root: mindMap.root,
+			sourceRevision: mindMap.sourceRevision,
+			language: "zh-CN",
+			colorScheme: "light",
+			presentation: createDefaultMindMapPresentation("left-to-right"),
+			interaction: createDefaultMindMapInteractionState(),
+			topicCommandAvailability: {
+				hasInternalClipboard: false,
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+			},
+		});
+
+		expect(
+			container.querySelector<HTMLElement>(
+				`[data-obmind-node-id="${topic.id}"]`,
+			)?.classList.contains("obmind-node-has-links"),
+		).toBe(true);
+		const visibleCapture = renderer.captureExportScene({
+			scope: "visible-map",
+		});
+		expect(
+			container.querySelector(".obmind-export-measure-layer"),
+		).not.toBeNull();
+		const visible = await visibleCapture;
+		const full = await renderer.captureExportScene({ scope: "full-map" });
+		const getShape = (scene: typeof visible) => {
+			const shape = scene.primitives.find(
+				(primitive) =>
+					(primitive.kind === "rect" || primitive.kind === "ellipse") &&
+					primitive.id === `${topic.id}:shape`,
+			);
+			if (shape === undefined || shape.kind === "circle") {
+				throw new Error("Expected an exported linked-topic shape.");
+			}
+			return shape;
+		};
+
+		expect(getShape(visible)).toEqual(getShape(full));
+		expect(
+			visible.primitives.some(
+				(primitive) => primitive.id?.includes(":link:") === true,
+			),
+		).toBe(false);
 		expect(
 			container.querySelector(".obmind-export-measure-layer"),
 		).toBeNull();
@@ -897,6 +1065,315 @@ describe("DOM/SVG renderer appearance", () => {
 				"--obmind-node-stroke",
 			),
 		).not.toBe(pencilStroke);
+
+		renderer.destroy();
+	});
+
+	it("captures registered Technical Draft and Charcoal materials for export", async () => {
+		const mindMap = parseMarkdown(
+			"# Parent\n## Child\n- Detail",
+			"Materials.md",
+			"Materials",
+		);
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: () => undefined,
+		});
+		renderer.mount(container);
+		const base = createDefaultMindMapPresentation("left-to-right");
+		const renderStyle = (styleId: string, revision: number): void => {
+			renderer.render({
+				root: mindMap.root,
+				sourceRevision: mindMap.sourceRevision,
+				language: "zh-CN",
+				colorScheme: "light",
+				presentation: {
+					...base,
+					revision,
+					theme:
+						BUILT_IN_MIND_MAP_FRONTEND_COMPOSITION.themeComposition.compose(
+							styleId,
+							"colorful",
+						),
+				},
+				interaction: createDefaultMindMapInteractionState(),
+				topicCommandAvailability: {
+					hasInternalClipboard: false,
+					hasUndoEntry: false,
+					hasRedoEntry: false,
+				},
+			});
+		};
+
+		renderStyle("technical-draft", 1);
+		expect(container.dataset.obmindCanvasEffect).toBe("technical-grid");
+		const technicalScene = await renderer.captureExportScene({
+			scope: "visible-map",
+		});
+		expect(technicalScene.canvasTexture).toMatchObject({
+			kind: "technical-grid",
+			cellSize: 24,
+			majorEvery: 5,
+			opacity: 0.18,
+		});
+
+		renderStyle("charcoal", 2);
+		expect(container.dataset.obmindCanvasEffect).toBe("charcoal-paper");
+		expect(
+			container.querySelector<HTMLElement>(".obmind-node-heading")?.dataset
+				.obmindNodeStrokeEffect,
+		).toBe("charcoal-stroke");
+		const charcoalHeading = container.querySelector<HTMLElement>(
+			".obmind-node-heading",
+		);
+		expect(charcoalHeading?.dataset.obmindNodeStrokeGeometry).toBe(
+			"rough-contour",
+		);
+		const liveContour = charcoalHeading?.querySelector<SVGPathElement>(
+			".obmind-node-stroke-path",
+		);
+		expect(
+			charcoalHeading
+				?.querySelector<SVGSVGElement>(".obmind-node-stroke-overlay")
+				?.hasAttribute("hidden"),
+		).toBe(false);
+		expect(liveContour?.getAttribute("d")).toMatch(/^M .* L .* Z$/);
+		expect(liveContour?.getAttribute("stroke-dasharray")).toBe(
+			"19 1.3 7 0.7 29 1.1",
+		);
+		expect(
+			container
+				.querySelector<SVGCircleElement>(".obmind-edge-terminal")
+				?.getAttribute("opacity"),
+		).toBe("0.62");
+		const charcoalScene = await renderer.captureExportScene({
+			scope: "visible-map",
+		});
+		expect(charcoalScene.canvasTexture?.kind).toBe("charcoal-paper");
+		expect(
+			charcoalScene.primitives.some(
+				(primitive) =>
+					"fill" in primitive &&
+					typeof primitive.fill !== "string" &&
+					primitive.fill.kind === "speckle",
+			),
+		).toBe(true);
+		expect(
+			charcoalScene.primitives.some(
+				(primitive) =>
+					primitive.kind === "path" &&
+					primitive.opacity !== undefined &&
+					primitive.opacity < 1,
+			),
+		).toBe(true);
+		const charcoalContours = charcoalScene.primitives.filter(
+			(primitive): primitive is MindMapExportPathPrimitive =>
+				primitive.kind === "path" &&
+				(primitive.id?.endsWith(":contour") ?? false),
+		);
+		expect(charcoalContours.length).toBeGreaterThan(0);
+		expect(
+			charcoalContours.every(
+				(primitive) =>
+					JSON.stringify(primitive.dashArray) ===
+					JSON.stringify([19, 1.3, 7, 0.7, 29, 1.1]),
+			),
+		).toBe(true);
+		const charcoalSvg = serializeMindMapExportSceneToSvg(charcoalScene, {
+			background: "theme",
+			padding: 0,
+		}).svg;
+		expect(charcoalSvg).toContain(
+			'stroke-dasharray="19 1.3 7 0.7 29 1.1"',
+		);
+		const charcoalBaseShapes = charcoalScene.primitives.filter(
+			(
+				primitive,
+			): primitive is
+				| MindMapExportRectPrimitive
+				| MindMapExportEllipsePrimitive =>
+				(primitive.kind === "rect" || primitive.kind === "ellipse") &&
+				(primitive.id?.endsWith(":shape") ?? false) &&
+				!(primitive.id?.endsWith(":double:shape") ?? false),
+		);
+		expect(charcoalBaseShapes.length).toBeGreaterThan(0);
+		expect(
+			charcoalBaseShapes.every(
+				(primitive) =>
+					primitive.stroke === "transparent" &&
+					primitive.strokeWidth === 0,
+			),
+		).toBe(true);
+		const charcoalOutlines = charcoalScene.primitives.filter(
+			(primitive): primitive is MindMapExportPathPrimitive =>
+				primitive.kind === "path" &&
+				(primitive.id?.endsWith(":contour") ?? false),
+		);
+		expect(charcoalOutlines).toHaveLength(charcoalBaseShapes.length);
+		expect(
+			charcoalOutlines.every(
+				(primitive) =>
+					primitive.strokeWidth >= 0.8 &&
+					(primitive.opacity ?? 1) < 1 &&
+					primitive.data.endsWith(" Z"),
+			),
+		).toBe(true);
+		expect(
+			charcoalScene.primitives.some(
+				(primitive) => primitive.id?.endsWith(":double:shape") ?? false,
+			),
+		).toBe(false);
+		const charcoalTerminalMarkers = charcoalScene.primitives.filter(
+			(
+				primitive,
+			): primitive is MindMapExportCirclePrimitive =>
+				primitive.kind === "circle" &&
+				(primitive.id?.endsWith(":terminal") ?? false),
+		);
+		expect(charcoalTerminalMarkers.length).toBeGreaterThan(0);
+		expect(
+			charcoalTerminalMarkers.every(
+				(primitive) => primitive.opacity === 0.62,
+			),
+		).toBe(true);
+
+		renderer.destroy();
+	});
+
+	it("keeps normal selection feedback when Charcoal topics cannot render a rough contour", () => {
+		const mindMap = parseMarkdown(
+			"# Main topic\n## Supporting detail",
+			"Charcoal feedback.md",
+			"Charcoal feedback",
+		);
+		const mainTopic = mindMap.root.children[0];
+		const supportingDetail = mainTopic?.children[0];
+		if (mainTopic === undefined || supportingDetail === undefined) {
+			throw new Error("Expected the Charcoal fixture to contain two topics.");
+		}
+
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: () => undefined,
+		});
+		renderer.mount(container);
+		const presentation = createDefaultMindMapPresentation("left-to-right");
+		const charcoalTheme =
+			BUILT_IN_MIND_MAP_FRONTEND_COMPOSITION.themeComposition.compose(
+				"charcoal",
+				"colorful",
+			);
+
+		const render = (
+			theme: typeof charcoalTheme,
+			interaction = createDefaultMindMapInteractionState(),
+			revision = 1,
+		): void => {
+			renderer.render({
+				root: mindMap.root,
+				sourceRevision: mindMap.sourceRevision,
+				language: "zh-CN",
+				colorScheme: "light",
+				presentation: { ...presentation, revision, theme },
+				interaction,
+				topicCommandAvailability: {
+					hasInternalClipboard: false,
+					hasUndoEntry: false,
+					hasRedoEntry: false,
+				},
+			});
+		};
+
+		render(charcoalTheme);
+		const rootElement = container.querySelector<HTMLElement>(
+			`[data-obmind-node-id="${mindMap.root.id}"]`,
+		);
+		const mainElement = container.querySelector<HTMLElement>(
+			`[data-obmind-node-id="${mainTopic.id}"]`,
+		);
+		const detailElement = container.querySelector<HTMLElement>(
+			`[data-obmind-node-id="${supportingDetail.id}"]`,
+		);
+		if (
+			rootElement === null ||
+			mainElement === null ||
+			detailElement === null
+		) {
+			throw new Error("Expected all Charcoal fixture topics to be rendered.");
+		}
+		expect(rootElement.dataset.obmindNodeStrokeGeometry).toBe(
+			"rough-contour",
+		);
+		expect(mainElement.dataset.obmindNodeStrokeGeometry).toBe(
+			"rough-contour",
+		);
+
+		const unframedCharcoalTheme = {
+			...charcoalTheme,
+			revision: `${String(charcoalTheme.revision)}:unframed`,
+			tokens: {
+				...charcoalTheme.tokens,
+				roles: {
+					...charcoalTheme.tokens.roles,
+					root: {
+						...charcoalTheme.tokens.roles.root,
+						shape: "none" as const,
+					},
+					mainTopic: {
+						...charcoalTheme.tokens.roles.mainTopic,
+						shape: "underline" as const,
+					},
+				},
+			},
+		};
+		render(
+			unframedCharcoalTheme,
+			{
+				...createDefaultMindMapInteractionState(),
+				selectedNodeIds: new Set([mindMap.root.id, mainTopic.id]),
+				primarySelectedNodeId: mindMap.root.id,
+				selectionAnchorNodeId: mindMap.root.id,
+				focusedNodeId: mindMap.root.id,
+			},
+			2,
+		);
+
+		// The same DOM elements are reused across a presentation change. Their
+		// stale contour marker must be removed so the regular selected/focused
+		// CSS treatment remains available for unframed topics.
+		expect(rootElement.dataset.obmindNodeStrokeGeometry).toBeUndefined();
+		expect(mainElement.dataset.obmindNodeStrokeGeometry).toBeUndefined();
+		expect(
+			rootElement
+				.querySelector<SVGSVGElement>(".obmind-node-stroke-overlay")
+				?.hasAttribute("hidden"),
+		).toBe(true);
+		expect(
+			mainElement
+				.querySelector<SVGSVGElement>(".obmind-node-stroke-overlay")
+				?.hasAttribute("hidden"),
+		).toBe(true);
+		expect(rootElement.classList.contains("obmind-node-selected")).toBe(true);
+		expect(rootElement.classList.contains("obmind-node-focused")).toBe(true);
+		expect(mainElement.classList.contains("obmind-node-selected")).toBe(true);
+
+		// A shape that can draw a contour remains on the charcoal treatment.
+		expect(detailElement.dataset.obmindNodeStrokeGeometry).toBe(
+			"rough-contour",
+		);
+		expect(
+			detailElement
+				.querySelector<SVGSVGElement>(".obmind-node-stroke-overlay")
+				?.hasAttribute("hidden"),
+		).toBe(false);
 
 		renderer.destroy();
 	});

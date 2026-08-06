@@ -31,6 +31,7 @@ import {
 import {
 	createMindMapPaletteRegistry,
 	isBuiltInMindMapPaletteId,
+	isLegacyMindMapPaletteId,
 } from "../../presentation/palettes";
 import {
 	createMindMapStyleRegistry,
@@ -286,7 +287,8 @@ export const BUILT_IN_MIND_MAP_PRESENTATION_LIBRARY_VALIDATORS: MindMapPresentat
 		},
 		isStyleIdReserved: (styleId) => isBuiltInMindMapStyleId(styleId),
 		isPaletteIdReserved: (paletteId) =>
-			isBuiltInMindMapPaletteId(paletteId),
+			isBuiltInMindMapPaletteId(paletteId) ||
+			isLegacyMindMapPaletteId(paletteId),
 	});
 
 /**

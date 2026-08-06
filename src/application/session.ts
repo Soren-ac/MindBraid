@@ -81,13 +81,16 @@ export class MindMapViewSession {
 		presentation: MindMapPresentation | null,
 		collapsedNodeIds: ReadonlySet<string>,
 		viewport: MindMapViewportState | null,
+		viewportPolicy: "replace" | "preserve" = "replace",
 	): void {
 		this.documentPresentationOverride = presentation;
 		this.collapsedNodeIds.clear();
 		for (const nodeId of collapsedNodeIds) {
 			this.collapsedNodeIds.add(nodeId);
 		}
-		this.viewport = viewport === null ? null : { ...viewport };
+		if (viewportPolicy === "replace") {
+			this.viewport = viewport === null ? null : { ...viewport };
+		}
 		this.reconcileSelectedDecoration();
 	}
 

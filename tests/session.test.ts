@@ -369,6 +369,42 @@ describe("MindMapViewSession", () => {
 		});
 	});
 
+	it("preserves the viewport while activating a refreshed task toggle", () => {
+		const previous = parse("- [ ] Task");
+		const next = parse("- [x] Task");
+		const previousTask = requireNode(previous, "Task");
+		const nextTask = requireNode(next, "Task");
+		const session = new MindMapViewSession();
+		const viewport = {
+			centerX: 860,
+			centerY: -240,
+			scale: 1.4,
+		};
+		const stalePersistedViewport = {
+			centerX: 0,
+			centerY: 0,
+			scale: 1,
+		};
+		session.setSelection(new Set([previousTask.id]), previousTask.id);
+		session.setViewport(viewport);
+
+		session.reconcileDocument(previous, next);
+		session.hydrateDocumentState(
+			createDefaultMindMapPresentation("left-to-right"),
+			new Set(),
+			stalePersistedViewport,
+			"preserve",
+		);
+		session.setSelection(new Set([nextTask.id]), nextTask.id);
+
+		expect(session.getInteractionState()).toMatchObject({
+			selectedNodeIds: new Set([nextTask.id]),
+			primarySelectedNodeId: nextTask.id,
+			focusedNodeId: nextTask.id,
+			viewport,
+		});
+	});
+
 	it("drops ambiguous duplicate state instead of rebinding it", () => {
 		const previous = parse(
 			"# Root\n## Same\n### Child\n## Same\n### Child",

@@ -179,14 +179,14 @@ describe("presentation patches", () => {
 		);
 		const paletteOnly = applyMindMapPresentationPatch(
 			current,
-			{ paletteId: "cloud" },
+			{ paletteId: "morandi-mint" },
 			{ capabilities },
 		);
 
 		expect(styleOnly.theme.styleId).toBe("pencil-sketch");
 		expect(styleOnly.theme.paletteId).toBe(capabilities.defaultPaletteId);
 		expect(paletteOnly.theme.styleId).toBe(capabilities.defaultStyleId);
-		expect(paletteOnly.theme.paletteId).toBe("cloud");
+		expect(paletteOnly.theme.paletteId).toBe("morandi-mint");
 	});
 
 	it("applies global font and connector width independently of style and palette", () => {

@@ -1,5 +1,212 @@
 # MindBraid development plan
 
+## Built-in visual Style expansion (2026-08-05)
+
+This iteration adds four new independently selectable visual Styles and
+upgrades the existing stable `cloud` Style into Organic Classic. The work is
+strictly presentation-only: it must not modify Markdown, select a Palette or
+layout engine, scan the Vault, access the network, or add telemetry.
+
+### Stable IDs and visual contracts
+
+- `swiss-editorial`: borderless editorial hierarchy, strong typographic scale,
+  restrained underline topics, fine rounded-orthogonal connectors, and generous
+  whitespace. It uses no material effect and remains suitable for dense notes.
+- `atlas-cards`: a clear root container, filled primary cards, outlined compact
+  secondary cards, and straight restrained connectors. Shape, spacing, and
+  hierarchy create the card language; all colors continue to come from the
+  selected Palette.
+- `technical-draft`: square technical labels, compact monospace defaults,
+  fine orthogonal structural connectors, and a Palette-derived major/minor grid
+  texture. The grid is a registered canvas effect and must render consistently
+  in the live canvas and exported SVG/PNG/JPEG/PDF artifacts.
+- `charcoal`: dry deterministic node strokes, subtle charcoal fill grain,
+  rough single-pass connectors, paper texture, and compact terminal marks.
+  Stable node/edge IDs seed every variation; rendering must never use
+  `Math.random()`.
+- `cloud` keeps its persisted ID for compatibility but becomes **Organic
+  Classic** (`cloud-style-v3`): a strong central topic, text-on-branch primary
+  and secondary topics, curved tapered connectors, and branch-driven emphasis.
+  Existing settings and document annotations therefore migrate visually
+  without losing or rewriting their stored Style reference.
+
+### Architecture and extensibility
+
+- Style factories remain pure renderer-neutral data in
+  `src/presentation/styles.ts`. They reference only registered primitive effect
+  IDs and contain no literal colors, CSS, DOM nodes, adapter callbacks, or
+  layout-engine selection.
+- Reusable effect IDs and validation stay in
+  `src/presentation/render-effects.ts`; deterministic parameter generation
+  remains framework-free in `src/presentation/hand-drawn.ts`; DOM/SVG adapter
+  implementations remain in `src/ui/dom-svg-effects.ts` and `.obmind-` scoped
+  CSS.
+- Technical grid and charcoal paper textures extend the export scene through a
+  typed texture descriptor instead of renderer Style-ID conditionals. Charcoal
+  node fill/stroke and edge primitives use the same resolved effect profiles in
+  live rendering and export capture.
+- Built-in Style previews remain capability-driven. Chinese and English labels
+  are resolved from stable IDs; custom user-authored Style labels remain
+  literal.
+- No runtime or development dependency is added. The current composition,
+  deterministic stroke helpers, CSS gradients, SVG primitives, and raster/PDF
+  pipelines are sufficient.
+
+### Tests and visual acceptance
+
+- Pure tests cover exact registration order, stable IDs/revisions, Style/Palette
+  composition invariants, effect-kind validation, Organic Classic compatibility,
+  and the distinct geometry/treatment contract of every new Style.
+- Renderer/export tests cover deterministic charcoal geometry, bounded output,
+  grid and charcoal texture serialization, long labels, and equality of the
+  relevant live/export presentation semantics.
+- After automated checks, build artifacts are deployed to the existing test
+  Vault without changing plugin enablement or `data.json`. Real Obsidian UI
+  acceptance covers every Style in light and dark appearance modes, preset
+  previews, a multi-level long-text fixture, collapse/expand, selection/editing,
+  zoom/fit, and SVG plus raster export. Screenshots are compared against the
+  researched visual definitions; a preset that reads as only a color change is
+  not accepted.
+- Final verification runs `npm run test`, `npm run verify:vendor-types`,
+  `npm run typecheck`, `npm run lint`, `npm run build`, `npm run check`, and
+  `git diff --check`, followed by a commit directly on `main`.
+
+### Real-UI acceptance findings and corrective work
+
+The first deployed Obsidian pass confirmed that all seven Styles are selectable,
+Palette selection remains unchanged while switching Styles, and the five target
+Styles render in both light and dark appearance modes. It also exposed three
+adapter-level mismatches that automated token tests alone did not catch:
+
+- Atlas must express hierarchy through card treatment, not fill every non-root
+  depth with the branch color. Extend the renderer-neutral role/depth treatment
+  contract so primary cards can remain filled while deeper topics use lighter
+  surface/outline or borderless fallback treatment without embedding colors in
+  the Style.
+- Built-in preview cards must be derived from the same role metrics, connector
+  profile, typography, and effect capabilities used by the live renderer. A
+  preview may simplify content, but it must show root/main/subtopic hierarchy,
+  Organic tapering, Swiss underline structure, Technical major/minor grid, and
+  Charcoal's single dry contour rather than inventing adapter-only visuals.
+- Charcoal export must suppress the ordinary base outline when the registered
+  effect supplies the visible contour, and its terminal mark opacity must match
+  the live adapter. SVG is checked directly; PNG/JPEG/PDF inherit the same
+  immutable export scene.
+
+These corrections remain presentation-only and add no dependency, Style-ID
+conditional in the renderer, network access, Vault scan, or Markdown mutation.
+
+### Final real-UI acceptance and Charcoal contour correction
+
+- The deployed test Vault was exercised in Obsidian 1.13.4 with every target
+  Style in both forced light and forced dark appearance. Swiss retained its
+  borderless root hierarchy and underlined first topics; Atlas retained filled
+  primary cards, neutral deeper cards, and straight connectors; Technical
+  retained square monospace labels, orthogonal routing, and visible major/minor
+  grid hierarchy; Organic Classic retained its central ellipse, borderless
+  branches, and tapered curves.
+- Technical uses solid structural connectors by default. Applying a dashed
+  line style to every branch made the hierarchy read like construction guides
+  rather than the finished drafting diagram; dashed and dotted profiles remain
+  independently selectable document formatting options. A future explicit
+  annotation-line role can add dashed detail guides without overloading topic
+  relationships.
+- Cross-combining Organic Classic and Atlas Cards with another Palette changed
+  only semantic colors, including the Palette-owned canvas. Node geometry,
+  typography, role treatment, connector routing/profile, selection, collapse
+  state, and viewport stayed unchanged.
+- The long-text fixture wrapped inside Atlas cards; one click selected the
+  topic, the second activation replaced the same content box with the inline
+  editor, Escape cancelled without a Markdown write, and clicking blank canvas
+  removed both selection and edit state. Collapse UI reported the exact hidden
+  descendant count and restored the branch cleanly.
+- A close-range Pencil/Charcoal comparison exposed one remaining visual gap:
+  Charcoal's CSS border was single-pass but still geometrically perfect, and
+  generic hover/selection rings could make it read as a double outline. The
+  node-stroke effect contract now advertises an optional `rough-contour`
+  capability. A framework-free deterministic closed-contour generator in
+  `src/presentation/hand-drawn.ts` supplies the same bounded path to the live
+  per-node SVG overlay, the preset preview, and export capture. Interaction
+  states recolor and strengthen that one contour instead of adding another
+  ring. Pencil keeps its separate handwritten, hatched, double-outline
+  treatment.
+- The contour is derived from stable node IDs, shape, measured bounds, radius,
+  and registered effect options. It is capped at a fixed point count, excludes
+  `none` and `underline` shapes, creates no hidden descendants, and introduces
+  no Style-ID branch, random rendering, dependency, network access, or note
+  mutation.
+- A final Obsidian 1.13.4 reload verified that the deployed plugin was using the
+  new per-node SVG overlay (`64` visible contour overlays in the fixture) and
+  the registered Charcoal dash rhythm (`19 1.3 7 0.7 29 1.1`). The forced-dark
+  close-up exposed one adapter-only fill halo: the smooth CSS background still
+  painted beneath the transparent border outside the rough contour. Charcoal
+  content and inline editors now clip their background to the padding box, so
+  the deterministic contour is the only visible boundary in normal, selected,
+  focused, and editing states. The corrected dark close-up was independently
+  re-reviewed and no longer reads as Pencil's double outline.
+- The real UI Palette independence check captured the first twenty Atlas node
+  positions, sizes, shape roles, font families, and font sizes plus the first
+  twenty connector paths before and after switching between Graphite and Deep
+  Lagoon. Both geometry/typography and path snapshots were byte-for-byte equal;
+  only resolved colors changed. Sidebar previews, Pencil regression appearance,
+  light/dark Charcoal, and all five target Style silhouettes were also checked
+  in the running Obsidian view after a production build and full plugin-class
+  reload. The plugin remained enabled throughout the final state.
+- Export materialization now belongs to the injected DOM/SVG effect adapters:
+  canvas effects create typed immutable texture descriptors and node-fill
+  effects create renderer-neutral paints. Technical major/minor grid colors and
+  Charcoal fine/coarse paper colors therefore come from the same resolved
+  Palette semantics as the live canvas, without profile-ID switches in the
+  renderer.
+- The retired `cloud` Palette ID remains reserved and is migrated to
+  `colorful` in v3, v4, and current v5 document annotations. This prevents a
+  future custom Palette from capturing an old persisted reference while
+  preserving the compatible `cloud` Style ID for Organic Classic.
+- Two final adapter edge cases are covered by regression tests: Charcoal clears
+  its rough-contour marker when a topic shape is `none` or `underline`, allowing
+  normal focus/selection feedback; and visible-map export falls back to an
+  isolated measurement layer for linked topics so omitted link controls do not
+  leave empty node padding. Neither path mutates the live viewport or Markdown.
+- The final post-build Obsidian pass reloaded community plugins without closing
+  or disabling MindBraid, then captured Swiss Editorial, Atlas Cards, Technical
+  Draft, Organic Classic, Pencil, and Charcoal in the live canvas. Technical and
+  Charcoal were checked in both forced light and forced dark modes; switching
+  Charcoal between Deep Lagoon and Graphite preserved its silhouette and
+  treatment while changing only color. The test Vault was left in its prior
+  light Charcoal / Deep Lagoon state with the settings panel closed.
+
+## Color Hunt inspired built-in palettes (2026-08-05)
+
+This iteration adds three independently selectable, color-only built-in
+Palettes for visual comparison in the existing MindBraid sidebar. It does not
+change Style geometry, typography, effects, layout, interaction state, or
+Markdown content.
+
+- **Coastal Ink** combines the durable navy/graphite/teal Color Hunt family
+  with a manually paired mist-blue light scheme. It is the professional,
+  contrast-first candidate for a future default.
+- **Deep Lagoon** uses the current violet/slate/aqua/mint family as a stronger
+  dark-mode option, with a separately authored light companion rather than a
+  mechanical inversion.
+- **Coral Tide** uses peach/cream/mint/blue as the friendly light-first option,
+  with deeper neutral surfaces and adjusted accent tones in dark mode.
+- Each Palette supplies semantic canvas, surface, text, border, accent, edge,
+  selection, role, and six-or-more branch colors through
+  `MindMapPaletteSpec`. Palette factories and stable IDs remain renderer- and
+  UI-independent; the existing capability-driven preview discovers them from
+  the registry.
+- Four-color inspiration sets are expanded into semantic UI tokens and branch
+  colors. Text colors are chosen against the actual canvas and emphasized
+  fills with a WCAG contrast target of at least 4.5:1. The existing runtime
+  foreground resolver remains authoritative for Style-owned branch fills.
+- Tests cover registration, exact light/dark token resolution, safe palette
+  validation, representative contrast pairs, and composition invariants that
+  prove switching these Palettes does not alter Style-owned geometry or
+  effects.
+- No runtime or development dependency is added. Generated `main.js` is
+  rebuilt only after preserving and testing the pre-existing uncommitted node
+  link UI changes in the main worktree.
+
 ## Community Plugin Scorecard hardening (2026-08-03)
 
 The 0.1.1 Community Plugin Scorecard reported 837 warnings. Reproduction
@@ -863,15 +1070,12 @@ layout engines, renderer interaction code, source mutation planners, and
 Markdown model remain unaware of sidebar DOM and of the two registries.
 
 The built-in `colorful`, `pencil-sketch`, and `cloud` definitions are split into
-three style specs and five palette specs. Their stable legacy palette IDs remain
-for backward-compatible persistence, while their user-facing names use an
-independent color vocabulary: Graphite, Aurora, Spectrum, Morandi Mint, and
-Retro Autumn. The final two palettes reproduce the marked literal colors from
-the supplied local HTML in light mode and add contrast-safe dark companions;
-they do not introduce a Style, layout, glow, or connector-opacity override.
-The three legacy matching pairs reproduce the previous complete themes; all
-cross-pairs are valid by construction and are validated against the active
-render-effect registry at composition time.
+three style specs and independently registered palette specs. The selectable
+color vocabulary is Graphite, Spectrum, Morandi Mint, Retro Autumn, Coastal
+Ink, Deep Lagoon, and Coral Tide. Aurora is retired; legacy `cloud` palette or
+theme data preserves the Cloud style and falls back to the default Spectrum
+palette. All active cross-pairs are valid by construction and are validated
+against the active render-effect registry at composition time.
 
 Frontend capabilities advertise `styles` and `palettes` independently. The
 basic frontend renders accessible preview-card grids in the Appearance sidebar:
@@ -1177,9 +1381,10 @@ Modules:
   the engine contract allows adding one later without changing the frontend.
 - The default presentation is Colorful Style + Spectrum Palette with
   `bilateral-tree`; Pencil sketch, Cloud, and Colorful remain the Style
-  vocabulary, while Graphite, Aurora, and Spectrum form the independent
-  baseline Palette vocabulary. Morandi Mint and Retro Autumn are additional
-  color-only presets. The original one-sided `tree` remains available.
+  vocabulary, while Graphite and Spectrum form the original independent
+  baseline Palette vocabulary. Morandi Mint, Retro Autumn, Coastal Ink, Deep
+  Lagoon, and Coral Tide are additional color-only presets. The original
+  one-sided `tree` remains available.
 - The phase-one sidebar emits document-scoped layout, Style, Palette, global
   font, connector width/profile, orientation, engine options, spacing, and
   selected-topic formatting changes. Those values are persisted for the current

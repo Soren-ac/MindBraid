@@ -429,7 +429,12 @@ export class MindMapView extends ItemView {
 				previousState.document.sourceRevision !==
 					state.document.sourceRevision)
 		) {
-			this.hydrateCurrentDocument(state);
+			this.hydrateCurrentDocument(
+				state,
+				!fileChanged && previousState?.status === "ready"
+					? "preserve"
+					: "replace",
+			);
 		}
 
 		this.renderCurrentFrame();
@@ -437,6 +442,7 @@ export class MindMapView extends ItemView {
 
 	private hydrateCurrentDocument(
 		state: MindMapViewState | null = this.currentState,
+		viewportPolicy: "replace" | "preserve" = "replace",
 	): void {
 		if (state?.status !== "ready") {
 			return;
@@ -450,6 +456,7 @@ export class MindMapView extends ItemView {
 			hydrated.presentationOverride,
 			hydrated.collapsedNodeIds,
 			hydrated.viewport,
+			viewportPolicy,
 		);
 	}
 
@@ -1234,10 +1241,10 @@ export class MindMapView extends ItemView {
 			}
 			this.session.setSelection(new Set([result.nodeId]), result.nodeId);
 			this.renderCurrentFrame();
-			this.frontend?.execute({
-				type: "focus-node",
-				nodeId: result.nodeId,
-			});
+			// A task toggle changes the source-backed checkbox state, but it is
+			// not a navigation gesture. The refreshed frame already preserves the
+			// per-tab viewport, so deliberately avoid `focus-node`, which centers
+			// the topic and would make the canvas jump after every checkbox click.
 		} finally {
 			this.structuralEditInFlight = false;
 		}

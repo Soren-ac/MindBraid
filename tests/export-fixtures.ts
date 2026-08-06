@@ -13,7 +13,7 @@ export function createExportScene(
 		scope: "visible-map",
 		bounds: { x: 10, y: 20, width: 120, height: 80 },
 		backgroundColor: "#f7f3e8",
-		paperTexture: null,
+		canvasTexture: null,
 		primitives: [
 			{
 				kind: "rect",

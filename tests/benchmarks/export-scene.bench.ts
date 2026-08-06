@@ -86,7 +86,7 @@ function createBenchmarkScene(topicCount: number): MindMapExportScene {
 			height: Math.ceil(topicCount / 50) * 60,
 		},
 		backgroundColor: "#f8fafc",
-		paperTexture: null,
+		canvasTexture: null,
 		primitives,
 		nodeShapes: ["rounded-rectangle"],
 	};

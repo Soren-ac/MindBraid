@@ -97,13 +97,28 @@ import {
 	literalColor,
 	type MindMapColorScheme,
 	type MindMapDecoration,
-	type MindMapEdgeRouting,
 	type MindMapInteractionEvent,
 	type MindMapLayoutOrientation,
 	type MindMapNodeShape,
 	type MindMapNodePresentation,
 	type MindMapThemeColor,
 } from "../presentation/presentation";
+import {
+	createMindMapStylePreviewScene,
+	createMindMapStylePreviewEdgePathData,
+	createMindMapStylePreviewTaperedEdgePathData,
+	type MindMapStylePreviewEdge,
+	type MindMapStylePreviewEffects,
+	type MindMapStylePreviewNode,
+} from "../presentation/style-preview-scene";
+import {
+	createMindMapRenderEffectResolver,
+	type MindMapRenderEffectResolver,
+} from "../presentation/render-effects";
+import {
+	createHandDrawnNodeContour,
+	type HandDrawnNodeContourShape,
+} from "../presentation/hand-drawn";
 import type { MindMapPresentationPatch } from "../presentation/presentation-patch";
 import { createMindMapNodeAssetPatch } from "../presentation/node-assets-edit";
 import type { MindMapAssetColorRole } from "../presentation/assets";
@@ -1786,6 +1801,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		updateStylePresetGrid(
 			elements.styleGrid,
 			frame.capabilities.styles,
+			createMindMapRenderEffectResolver(frame.capabilities.renderEffects),
 			frame.presentation.theme.styleId,
 			this.translator,
 		);
@@ -7452,9 +7468,14 @@ function createLocalizedPresetGrid(
 function updateStylePresetGrid(
 	container: HTMLElement,
 	capabilities: readonly MindMapStyleCapability[],
+	effects: MindMapRenderEffectResolver,
 	selectedId: string,
 	translator: ObMindTranslator,
 ): void {
+	const effectSignature = effects
+		.list()
+		.map((effect) => `${effect.id}:${effect.kind}`)
+		.join(",");
 	const existing = new Map(
 		Array.from(container.querySelectorAll<HTMLButtonElement>(
 			"button[data-obmind-style-id]",
@@ -7463,7 +7484,7 @@ function updateStylePresetGrid(
 	const ordered = capabilities.map((capability) => {
 		const signature =
 			`${capability.id}:${String(capability.style.revision)}:` +
-				`${capability.label}:${translator.language}`;
+				`${capability.label}:${translator.language}:${effectSignature}`;
 		const button =
 			existing.get(capability.id) ??
 			createPresetButton(container.ownerDocument, "style");
@@ -7479,7 +7500,7 @@ function updateStylePresetGrid(
 		if (button.dataset.obmindPresetSignature !== signature) {
 			button.dataset.obmindPresetSignature = signature;
 			button.replaceChildren(
-				createStylePresetPreview(container.ownerDocument, capability),
+				createStylePresetPreview(container.ownerDocument, capability, effects),
 				createPresetLabel(container.ownerDocument, capability.label),
 			);
 		}
@@ -7569,169 +7590,273 @@ function createPresetLabel(
 function createStylePresetPreview(
 	ownerDocument: Document,
 	capability: MindMapStyleCapability,
+	effects: MindMapRenderEffectResolver,
 ): HTMLElement {
 	const preview = createElement(
 		ownerDocument,
 		"span",
 		"obmind-preset-preview obmind-style-preview",
 	);
-	const svg = createPreviewSvg(ownerDocument);
-	const { style } = capability;
-	const lineStyle = style.tokens.edge.lineStyle;
-	for (const pathData of createStylePreviewEdgePaths(
-		style.tokens.edge.routing,
-	)) {
-		const path = createPreviewSvgElement(ownerDocument, "path");
-		path.setAttribute("class", "obmind-style-preview-edge");
-		path.setAttribute("d", pathData);
-		path.setAttribute("fill", "none");
-		path.setAttribute("stroke", "currentColor");
-		path.setAttribute(
-			"stroke-width",
-			String(Math.min(2.2, Math.max(1, style.tokens.edge.width))),
-		);
-		if (lineStyle === "dashed") {
-			path.setAttribute("stroke-dasharray", "5 3");
-		} else if (lineStyle === "dotted") {
-			path.setAttribute("stroke-dasharray", "1.5 2.5");
-		}
-		svg.append(path);
+	const scene = createMindMapStylePreviewScene(capability.style, effects);
+	const svg = createPreviewSvg(ownerDocument, scene.width, scene.height);
+	const canvasEffect = scene.effects.canvasTexture;
+	if (canvasEffect !== null) {
+		preview.dataset.obmindCanvasEffect = canvasEffect.profileId;
+		preview.dataset.obmindPreviewCanvasTreatment =
+			canvasEffect.presentation.canvasTexture;
 	}
-	appendStylePreviewNode(
-		svg,
-		style.tokens.roles.root.shape ?? "rounded-rectangle",
-		46,
-		21,
-		28,
-		20,
-		style.tokens.effects.nodeStroke !== null,
-	);
-	for (const [x, y] of [
-		[5, 8],
-		[5, 42],
-		[91, 8],
-		[91, 42],
-	] as const) {
-		appendStylePreviewNode(
-			svg,
-			style.tokens.roles.mainTopic.shape ?? "rounded-rectangle",
-			x,
-			y,
-			24,
-			12,
-			style.tokens.effects.nodeStroke !== null,
-		);
+	for (const edge of scene.edges) {
+		appendStylePreviewEdge(svg, edge);
+	}
+	for (const node of scene.nodes) {
+		appendStylePreviewNode(svg, node, scene.effects);
 	}
 	preview.classList.toggle(
 		"obmind-style-preview-textured",
-		style.tokens.effects.canvasTexture !== null,
+		canvasEffect?.presentation.canvasTexture !== "none",
 	);
 	preview.append(svg);
 	return preview;
 }
 
-function createStylePreviewEdgePaths(
-	routing: MindMapEdgeRouting,
-): readonly string[] {
-	const endpoints = [
-		[46, 31, 29, 14],
-		[46, 31, 29, 48],
-		[74, 31, 91, 14],
-		[74, 31, 91, 48],
-	] as const;
-	return endpoints.map(([x1, y1, x2, y2]) => {
-		switch (routing) {
-			case "straight":
-				return `M ${x1} ${y1} L ${x2} ${y2}`;
-			case "orthogonal":
-				return `M ${x1} ${y1} H ${(x1 + x2) / 2} V ${y2} H ${x2}`;
-			case "rounded-orthogonal": {
-				const middle = (x1 + x2) / 2;
-				return `M ${x1} ${y1} H ${middle} Q ${middle} ${y1} ${middle} ${y2} H ${x2}`;
-			}
-			case "bezier":
-				return `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`;
-		}
-	});
-}
-
 function appendStylePreviewNode(
 	svg: SVGSVGElement,
-	shape: MindMapNodeShape,
-	x: number,
-	y: number,
-	width: number,
-	height: number,
-	doubleStroke: boolean,
+	node: MindMapStylePreviewNode,
+	effects: MindMapStylePreviewEffects,
 ): void {
-	if (doubleStroke && shape !== "none" && shape !== "underline") {
-		const echo = createPreviewNodeShape(
-			svg.ownerDocument,
-			shape,
-			x + 0.8,
-			y + 0.6,
-			width,
-			height,
-		);
-		echo.setAttribute("class", "obmind-style-preview-node obmind-style-preview-node-echo");
-		svg.append(echo);
+	const group = createPreviewSvgElement(svg.ownerDocument, "g");
+	group.setAttribute("class", "obmind-style-preview-topic");
+	group.dataset.obmindPreviewRole = node.role;
+	group.dataset.obmindNodeShape = node.shape;
+	group.dataset.obmindPreviewFillSource = node.fillSource;
+	const strokeTreatment = effects.nodeStroke?.presentation.nodeStroke ?? "single";
+	const fillTreatment = effects.nodeFill?.presentation.nodeFill ?? "none";
+	if (strokeTreatment === "double") {
+		const echo = createPreviewNodeShape(svg.ownerDocument, node, 0.8, 0.6);
+		if (echo !== null) {
+			configureStylePreviewNodeShape(
+				echo,
+				node,
+				effects,
+				"obmind-style-preview-node obmind-style-preview-node-echo",
+			);
+			group.append(echo);
+		}
 	}
-	const element = createPreviewNodeShape(
-		svg.ownerDocument,
-		shape,
-		x,
-		y,
-		width,
-		height,
+	const shape =
+		strokeTreatment === "dry"
+			? createDryPreviewNodeShape(
+					svg.ownerDocument,
+					node,
+					effects.nodeStroke,
+				)
+			: createPreviewNodeShape(svg.ownerDocument, node);
+	if (shape !== null) {
+		configureStylePreviewNodeShape(
+			shape,
+			node,
+			effects,
+			"obmind-style-preview-node",
+		);
+		group.append(shape);
+	}
+	const text = createPreviewSvgElement(svg.ownerDocument, "text");
+	text.setAttribute("class", "obmind-style-preview-node-text");
+	text.setAttribute("x", String(node.x + node.width / 2));
+	text.setAttribute("y", String(node.y + node.height / 2));
+	text.setAttribute("text-anchor", "middle");
+	text.setAttribute("dominant-baseline", "central");
+	text.setAttribute(
+		"font-family",
+		`var(--${resolvePreviewFontFamilyToken(node.metrics.typography.fontFamilyToken)})`,
 	);
-	element.setAttribute("class", "obmind-style-preview-node");
-	svg.append(element);
+	text.setAttribute(
+		"font-size",
+		String(
+			Math.min(4.6, Math.max(2.35, node.metrics.typography.fontSize * 0.16)),
+		),
+	);
+	text.setAttribute("font-weight", String(node.metrics.typography.fontWeight));
+	text.dataset.obmindPreviewRole = node.role;
+	text.dataset.obmindPreviewFillTreatment = fillTreatment;
+	text.dataset.obmindPreviewFillSource = node.fillSource;
+	text.textContent = node.label;
+	group.append(text);
+	svg.append(group);
+}
+
+function createDryPreviewNodeShape(
+	ownerDocument: Document,
+	node: MindMapStylePreviewNode,
+	effect: MindMapStylePreviewEffects["nodeStroke"],
+): SVGElement | null {
+	const shape = resolvePreviewContourShape(node.shape);
+	if (shape === null) {
+		return createPreviewNodeShape(ownerDocument, node);
+	}
+	const configuredRoughness = effect?.options.roughness;
+	const roughness =
+		typeof configuredRoughness === "number" &&
+		Number.isFinite(configuredRoughness)
+			? configuredRoughness
+			: 1.55;
+	const contour = createHandDrawnNodeContour({
+		shape,
+		width: node.width,
+		height: node.height,
+		radius:
+			node.shape === "rounded-rectangle"
+				? Math.min(node.height / 2, node.metrics.radius * 0.25)
+				: undefined,
+		inset: 0.9,
+		stableKey: `style-preview:${node.id}`,
+		roughness: roughness * 0.44,
+		sampleSpacing: 4,
+		maximumPointCount: 48,
+	});
+	const path = createPreviewSvgElement(ownerDocument, "path");
+	path.setAttribute(
+		"d",
+		contour
+			.map((point, index) =>
+				`${index === 0 ? "M" : "L"} ${String(node.x + point.x)} ${String(node.y + point.y)}`,
+			)
+			.join(" ") + " Z",
+	);
+	return path;
+}
+
+function resolvePreviewContourShape(
+	shape: MindMapNodeShape,
+): HandDrawnNodeContourShape | null {
+	switch (shape) {
+		case "rectangle":
+		case "rounded-rectangle":
+		case "pill":
+		case "ellipse":
+			return shape;
+		case "none":
+		case "underline":
+			return null;
+	}
 }
 
 function createPreviewNodeShape(
 	ownerDocument: Document,
-	shape: MindMapNodeShape,
-	x: number,
-	y: number,
-	width: number,
-	height: number,
-): SVGElement {
-	if (shape === "ellipse") {
+	node: MindMapStylePreviewNode,
+	offsetX = 0,
+	offsetY = 0,
+): SVGElement | null {
+	const x = node.x + offsetX;
+	const y = node.y + offsetY;
+	if (node.shape === "ellipse") {
 		const ellipse = createPreviewSvgElement(ownerDocument, "ellipse");
-		ellipse.setAttribute("cx", String(x + width / 2));
-		ellipse.setAttribute("cy", String(y + height / 2));
-		ellipse.setAttribute("rx", String(width / 2));
-		ellipse.setAttribute("ry", String(height / 2));
+		ellipse.setAttribute("cx", String(x + node.width / 2));
+		ellipse.setAttribute("cy", String(y + node.height / 2));
+		ellipse.setAttribute("rx", String(node.width / 2));
+		ellipse.setAttribute("ry", String(node.height / 2));
 		return ellipse;
 	}
-	if (shape === "underline" || shape === "none") {
+	if (node.shape === "none") {
+		return null;
+	}
+	if (node.shape === "underline") {
 		const line = createPreviewSvgElement(ownerDocument, "line");
 		line.setAttribute("x1", String(x));
-		line.setAttribute("x2", String(x + width));
-		line.setAttribute(
-			"y1",
-			String(shape === "underline" ? y + height : y + height / 2),
-		);
-		line.setAttribute(
-			"y2",
-			String(shape === "underline" ? y + height : y + height / 2),
-		);
+		line.setAttribute("x2", String(x + node.width));
+		line.setAttribute("y1", String(y + node.height));
+		line.setAttribute("y2", String(y + node.height));
 		return line;
 	}
 	const rect = createPreviewSvgElement(ownerDocument, "rect");
 	rect.setAttribute("x", String(x));
 	rect.setAttribute("y", String(y));
-	rect.setAttribute("width", String(width));
-	rect.setAttribute("height", String(height));
+	rect.setAttribute("width", String(node.width));
+	rect.setAttribute("height", String(node.height));
 	rect.setAttribute(
 		"rx",
-		shape === "pill"
-			? String(height / 2)
-			: shape === "rounded-rectangle"
-				? "5"
+		node.shape === "pill"
+			? String(node.height / 2)
+			: node.shape === "rounded-rectangle"
+				? String(Math.min(node.height / 2, node.metrics.radius * 0.25))
 				: "0",
 	);
 	return rect;
+}
+
+function appendStylePreviewEdge(
+	svg: SVGSVGElement,
+	edge: MindMapStylePreviewEdge,
+): void {
+	const taperedPathData = createMindMapStylePreviewTaperedEdgePathData(edge);
+	const path = createPreviewSvgElement(svg.ownerDocument, "path");
+	path.setAttribute(
+		"class",
+		taperedPathData === null
+			? "obmind-style-preview-edge"
+			: "obmind-style-preview-edge obmind-style-preview-edge-tapered",
+	);
+	path.setAttribute(
+		"d",
+		taperedPathData ?? createMindMapStylePreviewEdgePathData(edge),
+	);
+	path.dataset.obmindConnectorProfile = edge.connectorProfile.kind;
+	path.dataset.obmindPreviewEdgeTreatment =
+		edge.edgeEffect?.presentation.edgeStroke ?? "clean";
+	if (edge.edgeEffect !== null) {
+		path.dataset.obmindEdgeEffect = edge.edgeEffect.profileId;
+	}
+	if (taperedPathData === null) {
+		path.setAttribute("fill", "none");
+		path.setAttribute("stroke", "currentColor");
+		path.setAttribute("stroke-width", String(edge.strokeWidth));
+		if (edge.lineStyle === "dashed") {
+			path.setAttribute("stroke-dasharray", "5 3");
+		} else if (edge.lineStyle === "dotted") {
+			path.setAttribute("stroke-dasharray", "1.5 2.5");
+		}
+	} else {
+		path.setAttribute("fill", "currentColor");
+	}
+	svg.append(path);
+}
+
+function configureStylePreviewNodeShape(
+	element: SVGElement,
+	node: MindMapStylePreviewNode,
+	effects: MindMapStylePreviewEffects,
+	className: string,
+): void {
+	element.setAttribute("class", className);
+	element.setAttribute(
+		"stroke-width",
+		String(Math.min(1.8, Math.max(0.65, node.metrics.borderWidth))),
+	);
+	element.dataset.obmindPreviewRole = node.role;
+	element.dataset.obmindNodeShape = node.shape;
+	element.dataset.obmindPreviewFillSource = node.fillSource;
+	element.dataset.obmindPreviewStrokeTreatment =
+		effects.nodeStroke?.presentation.nodeStroke ?? "single";
+	element.dataset.obmindPreviewFillTreatment =
+		effects.nodeFill?.presentation.nodeFill ?? "none";
+	const strokeDashArray = effects.nodeStroke?.presentation.nodeStrokeDashArray;
+	if (strokeDashArray === null || strokeDashArray === undefined) {
+		element.removeAttribute("stroke-dasharray");
+	} else {
+		element.setAttribute("stroke-dasharray", strokeDashArray.join(" "));
+	}
+	if (effects.nodeStroke !== null) {
+		element.dataset.obmindNodeStrokeEffect = effects.nodeStroke.profileId;
+	}
+	if (effects.nodeFill !== null) {
+		element.dataset.obmindNodeFillEffect = effects.nodeFill.profileId;
+	}
+}
+
+function resolvePreviewFontFamilyToken(token: string): string {
+	return /^[A-Za-z][A-Za-z0-9-]*$/.test(token)
+		? token
+		: "font-interface";
 }
 
 function createPalettePresetPreview(
@@ -7827,9 +7952,13 @@ function createPalettePresetPreview(
 	return preview;
 }
 
-function createPreviewSvg(ownerDocument: Document): SVGSVGElement {
+function createPreviewSvg(
+	ownerDocument: Document,
+	width = 120,
+	height = 62,
+): SVGSVGElement {
 	const svg = createPreviewSvgElement(ownerDocument, "svg");
-	svg.setAttribute("viewBox", "0 0 120 62");
+	svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 	svg.setAttribute("aria-hidden", "true");
 	svg.setAttribute("focusable", "false");
 	return svg;

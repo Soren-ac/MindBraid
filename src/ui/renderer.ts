@@ -65,10 +65,14 @@ import {
 	BUILT_IN_DOM_SVG_EFFECT_REGISTRY,
 	type DomSvgCssEffect,
 	type DomSvgMindMapEffectRegistry,
+	type DomSvgNodeFillEffect,
+	type DomSvgNodeStrokeEffect,
 } from "./dom-svg-effects";
 import {
+	createHandDrawnNodeContour,
 	sampleCubicBezier,
 	type HandDrawnPoint,
+	type HandDrawnNodeContourShape,
 } from "../presentation/hand-drawn";
 import {
 	createMindMapNodeEditSnapshot,
@@ -76,6 +80,7 @@ import {
 	type MindMapNode,
 	type MindMapNodeEditSnapshot,
 } from "../core/model";
+import { isLocalMindMapLinkTarget } from "../core/link-target";
 import {
 	resolveMindMapCanvasPointerIntent,
 	resolveMindMapNodeClickIntent,
@@ -136,6 +141,7 @@ import {
 	hasDistinctMindMapNodeFill,
 	isSafeHostColorToken,
 	isSafeLiteralColor,
+	resolveMindMapNodeFillSource,
 	resolveMindMapThemeColors,
 	resolveMindMapThemeRoles,
 	resolveMindMapNodeTextColor,
@@ -187,6 +193,9 @@ const MIND_MAP_DECORATION_MARKER_SIZE = 18;
 const MIND_MAP_DECORATION_HIT_WIDTH = 14;
 const MIND_MAP_NODE_ASSET_SIZE = 16;
 const MIND_MAP_NODE_ASSET_GAP = 4;
+const MIND_MAP_NODE_LINK_CONTROL_SIZE = 18;
+const MIND_MAP_NODE_LINK_CONTROL_GAP = 2;
+const MIND_MAP_NODE_LINK_LABEL_GAP = 4;
 const VARIABLE_WIDTH_LINE_PATTERNS: Readonly<
 	Record<Exclude<MindMapLineStyle, "solid">, {
 		readonly dashLength: number;
@@ -1140,8 +1149,10 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 
 	/**
 	 * Visible-map exports use the existing, positioned topic DOM and live
-	 * layout. The map is already exactly what the user sees, so a second hidden
-	 * measurement pass would only add latency and layout work.
+	 * layout when the live topic has no interaction-only control that changes
+	 * its measured geometry. Linked topics reserve inline space for buttons that
+	 * are intentionally excluded from exports, so those snapshots fall back to
+	 * the isolated measurement path used by full-map capture.
 	 */
 	private resolveLiveMindMapExportElements(
 		liveInput: MindMapRenderInput,
@@ -1175,6 +1186,9 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			}
 			const element = this.nodeElements.get(positioned.node.id);
 			if (element === undefined) {
+				return null;
+			}
+			if (element.classList.contains("obmind-node-has-links")) {
 				return null;
 			}
 			elementsByNodeId.set(positioned.node.id, element);
@@ -1435,6 +1449,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 							colors,
 							branchIndexes,
 							assetRegistry: this.assetRegistry,
+							effects: this.effects,
 						},
 						colorResolver.resolve,
 						options.signal,
@@ -1489,45 +1504,13 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 				backgroundColor: colorResolver.resolve(
 					resolveThemeColor(colors.canvas),
 				),
-				paperTexture:
-					canvasEffect?.profileId === "paper-grain"
-						? {
-								kind: "paper-grain",
-								color: colorResolver.resolve(
-									resolveThemeColor(colors.textMuted),
-								),
-								fineCellSize: parseCssPixelValue(
-									canvasEffect.variables[
-										"--obmind-effect-paper-fine-cell"
-									],
-									4,
-								),
-								coarseCellSize: parseCssPixelValue(
-									canvasEffect.variables[
-										"--obmind-effect-paper-coarse-cell"
-									],
-									14,
-								),
-								offsetX: parseCssPixelValue(
-									canvasEffect.variables[
-										"--obmind-effect-paper-offset-x"
-									],
-									0,
-								),
-								offsetY: parseCssPixelValue(
-									canvasEffect.variables[
-										"--obmind-effect-paper-offset-y"
-									],
-									0,
-								),
-								opacity: parseCssNumberValue(
-									canvasEffect.variables[
-										"--obmind-effect-paper-opacity"
-									],
-									0.08,
-								),
-							}
-						: null,
+				canvasTexture:
+					canvasEffect?.createExportTexture({
+						textMuted: colorResolver.resolve(
+							resolveThemeColor(colors.textMuted),
+						),
+						border: colorResolver.resolve(resolveThemeColor(colors.border)),
+					}) ?? null,
 				primitives,
 				nodeShapes: [...shapes],
 			};
@@ -1722,6 +1705,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 		};
 		this.activeNodeEdit = edit;
 		nodeElement.classList.add("obmind-node-editing");
+		nodeElement.classList.remove("obmind-node-edit-invalid");
 		// Replace the content control in place so the editor remains the node's
 		// single measured content box. Appending it to `.obmind-node` would make
 		// it a second in-flow child whenever a host/theme overrides `[hidden]`.
@@ -2077,7 +2061,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 				this.resizeObserver?.observe(element);
 			}
 
-			this.updateNodeElement(
+			const nodePresentation = this.updateNodeElement(
 				element,
 				node,
 				positioned.depth,
@@ -2103,6 +2087,13 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 						fallback: input.presentation.layout.orientation,
 					}),
 				).connectionSide,
+			);
+			this.updateNodeStrokeOverlay(
+				element,
+				node.id,
+				positioned,
+				nodePresentation,
+				input.presentation,
 			);
 			element.style.transform = `translate3d(${positioned.x}px, ${positioned.y}px, 0)`;
 		}
@@ -2230,6 +2221,16 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 		element.dataset.obmindNodeId = id;
 		element.setAttribute("role", "treeitem");
 
+		const strokeOverlay = createSvgElement(ownerDocument, "svg");
+		strokeOverlay.classList.add("obmind-node-stroke-overlay");
+		strokeOverlay.setAttribute("aria-hidden", "true");
+		strokeOverlay.setAttribute("focusable", "false");
+		strokeOverlay.setAttribute("preserveAspectRatio", "none");
+		strokeOverlay.setAttribute("hidden", "");
+		const strokePath = createSvgElement(ownerDocument, "path");
+		strokePath.classList.add("obmind-node-stroke-path");
+		strokeOverlay.append(strokePath);
+
 		const toggleButton = createHtmlElement(ownerDocument, "button");
 		toggleButton.className = "obmind-node-toggle";
 		toggleButton.type = "button";
@@ -2292,6 +2293,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 		).t("renderer.editor.edit-node");
 
 		element.append(
+			strokeOverlay,
 			toggleButton,
 			taskCheckbox,
 			contentButton,
@@ -2313,7 +2315,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			this.branchIndexByNodeId,
 		resolveColor: MindMapThemeColorResolver =
 			this.resolveThemeColorForContrast,
-	): void {
+	): MindMapNodePresentation {
 		const translator = createObMindTranslator(input.language);
 		const isCollapsed = input.interaction.collapsedNodeIds.has(node.id);
 		const isSelected = input.interaction.selectedNodeIds.has(node.id);
@@ -2334,6 +2336,12 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			theme: input.presentation.theme,
 			nodePresentation,
 		});
+		const appearanceColors = resolveNodeAppearanceColors(
+			nodePresentation,
+			input.presentation,
+			colors,
+			depth === 0,
+		);
 
 		element.classList.remove(
 			"obmind-node-root",
@@ -2345,6 +2353,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			"obmind-node-focused",
 			"obmind-node-hovered",
 			"obmind-node-has-task",
+			"obmind-node-has-links",
 		);
 		element.classList.add(`obmind-node-${node.kind}`);
 		element.classList.toggle("obmind-node-root", depth === 0);
@@ -2407,18 +2416,28 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			".obmind-node-editor-accessible-label",
 		);
 		const links = element.querySelector<HTMLElement>(".obmind-node-links");
+		applyNodeLinkControlStyles(
+			element,
+			nodePresentation,
+			appearanceColors,
+			colors,
+			depth === 0,
+		);
 
 		const displayText = nodePresentation.content?.plainText ?? node.text;
 		if (label !== null) {
 			updateNodeLabel(label, displayText, nodePresentation);
 		}
 		if (links !== null) {
-			const linkButtons = node.links.map((link, index) => {
+			const linkButtons = node.links.flatMap((link, index) => {
+				if (!isLocalMindMapLinkTarget(link.target)) {
+					return [];
+				}
 				const button = createHtmlElement(links.ownerDocument, "button");
 				button.type = "button";
 				button.className = "obmind-node-link";
 				button.dataset.obmindNodeLinkIndex = String(index);
-				button.textContent = link.kind === "wikilink" ? "⌁" : "↗";
+				button.append(createMindMapNodeLinkIcon(links.ownerDocument));
 				button.title = translator.t("renderer.link.open-title", {
 					label: link.label,
 				});
@@ -2428,10 +2447,27 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 						label: link.label,
 					}),
 				);
-				return button;
+				return [button];
 			});
+			const actionableLinkCount = linkButtons.length;
 			links.replaceChildren(...linkButtons);
-			links.hidden = linkButtons.length === 0 || activeEdit !== null;
+			links.hidden = actionableLinkCount === 0;
+			element.classList.toggle(
+				"obmind-node-has-links",
+				actionableLinkCount > 0,
+			);
+			setCssProperty(
+				element,
+				"--obmind-node-link-reserve",
+				actionableLinkCount > 0
+					? `${String(
+							actionableLinkCount * MIND_MAP_NODE_LINK_CONTROL_SIZE +
+								Math.max(0, actionableLinkCount - 1) *
+									MIND_MAP_NODE_LINK_CONTROL_GAP +
+								MIND_MAP_NODE_LINK_LABEL_GAP,
+						)}px`
+					: null,
+			);
 			links.setAttribute(
 				"aria-label",
 				translator.t("renderer.link.group-aria", { node: displayText }),
@@ -2460,12 +2496,6 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			taskCheckbox.disabled = activeEdit !== null || taskState === null;
 		}
 		if (contentButton !== null) {
-			const appearanceColors = resolveNodeAppearanceColors(
-				nodePresentation,
-				input.presentation,
-				colors,
-			depth === 0,
-			);
 			if (assetContainer !== null) {
 				renderMindMapNodeAssets(
 					assetContainer,
@@ -2567,6 +2597,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 				{ node: displayText },
 			);
 		}
+		return nodePresentation;
 	}
 
 	private applyNodeEffects(
@@ -2583,7 +2614,114 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			presentation.theme.tokens.effects.nodeFill,
 		);
 		applyCssEffect(element, "obmindNodeStrokeEffect", stroke);
+		// A stroke profile may advertise a contour while the current topic shape
+		// cannot render one (for example, `none` and `underline`). The overlay
+		// updater owns this geometry marker because it has the final shape and
+		// measured-size checks. Clearing it here also prevents an old contour
+		// marker from suppressing the regular selected/focused treatment during a
+		// re-render.
+		setOptionalDataAttribute(element, "obmindNodeStrokeGeometry", undefined);
 		applyCssEffect(element, "obmindNodeFillEffect", fill);
+	}
+
+	private updateNodeStrokeOverlay(
+		element: HTMLElement,
+		nodeId: string,
+		positioned: PositionedNode,
+		nodePresentation: MindMapNodePresentation,
+		presentation: MindMapPresentation,
+	): void {
+		const overlay = element.querySelector<SVGSVGElement>(
+			".obmind-node-stroke-overlay",
+		);
+		const path = overlay?.querySelector<SVGPathElement>(
+			".obmind-node-stroke-path",
+		);
+		const effect = this.effects.resolveNodeStroke(
+			presentation.theme.tokens.effects.nodeStroke,
+			nodeId,
+		);
+		const contourShape = resolveHandDrawnNodeContourShape(
+			nodePresentation.shape,
+		);
+		if (
+			overlay === null ||
+			overlay === undefined ||
+			path === null ||
+			path === undefined ||
+			effect?.contour === null ||
+			effect?.contour === undefined ||
+			contourShape === null ||
+			!Number.isFinite(positioned.width) ||
+			!Number.isFinite(positioned.height) ||
+			positioned.width <= 0 ||
+			positioned.height <= 0
+		) {
+			overlay?.setAttribute("hidden", "");
+			path?.removeAttribute("d");
+			path?.removeAttribute("stroke-dasharray");
+			setOptionalDataAttribute(
+				element,
+				"obmindNodeStrokeGeometry",
+				undefined,
+			);
+			setCssProperty(element, "--obmind-node-stroke-render-width", null);
+			setCssProperty(element, "--obmind-node-stroke-render-opacity", null);
+			return;
+		}
+
+		const borderWidth =
+			nodePresentation.borderWidth ?? presentation.theme.tokens.node.borderWidth;
+		const strokeWidth = Math.max(
+			effect.exportEffect.minimumWidth,
+			borderWidth * effect.exportEffect.widthScale,
+		);
+		const inset = Math.max(
+			effect.exportEffect.inset,
+			effect.contour.roughness + strokeWidth / 2 + 0.25,
+		);
+		const points = createHandDrawnNodeContour({
+			shape: contourShape,
+			width: positioned.width,
+			height: positioned.height,
+			radius:
+				nodePresentation.radius ?? presentation.theme.tokens.node.radius,
+			inset,
+			stableKey: nodeId,
+			roughness: effect.contour.roughness,
+			sampleSpacing: effect.contour.sampleSpacing,
+			maximumPointCount: effect.contour.maximumPointCount,
+		});
+
+		overlay.setAttribute(
+			"viewBox",
+			`0 0 ${String(positioned.width)} ${String(positioned.height)}`,
+		);
+		overlay.removeAttribute("hidden");
+		path.setAttribute("d", createClosedPolylinePathData(points));
+		if (effect.contour.dashArray === null) {
+			path.removeAttribute("stroke-dasharray");
+		} else {
+			path.setAttribute(
+				"stroke-dasharray",
+				effect.contour.dashArray.map(String).join(" "),
+			);
+		}
+		setCssProperty(
+			element,
+			"--obmind-node-stroke-render-width",
+			`${String(strokeWidth)}px`,
+		);
+		setCssProperty(
+			element,
+			"--obmind-node-stroke-render-opacity",
+			String(effect.exportEffect.opacity),
+		);
+		setOptionalDataAttribute(
+			element,
+			"obmindNodeStrokeGeometry",
+			effect.contour.kind,
+		);
 	}
 
 	private renderEdges(
@@ -2782,6 +2920,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 						),
 					),
 				);
+				marker.setAttribute("opacity", String(markerEffect.opacity));
 				marker.setAttribute("focusable", "false");
 				marker.setAttribute("tabindex", "-1");
 				marker.setAttribute("aria-hidden", "true");
@@ -4467,6 +4606,9 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 
 		const nextText = edit.input.value.trim();
 		if (commit && nextText.length === 0 && !this.destroyed) {
+			this.nodeElements
+				.get(edit.nodeId)
+				?.classList.add("obmind-node-edit-invalid");
 			edit.input.setCustomValidity(
 				createObMindTranslator(
 					this.renderInput?.language ?? DEFAULT_OBMIND_LANGUAGE,
@@ -4508,6 +4650,7 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 		// keeps node measurement stable across edit lifecycle changes.
 		edit.input.replaceWith(edit.contentButton);
 		nodeElement?.classList.remove("obmind-node-editing");
+		nodeElement?.classList.remove("obmind-node-edit-invalid");
 		this.scheduleMeasurement();
 
 		if (
@@ -4779,6 +4922,9 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 		if (input.value.trim().length > 0) {
 			input.setCustomValidity("");
 			input.removeAttribute("aria-invalid");
+			this.nodeElements
+				.get(this.activeNodeEdit?.nodeId ?? "")
+				?.classList.remove("obmind-node-edit-invalid");
 		}
 		resizeNodeEditor(input);
 		this.scheduleMeasurement();
@@ -6421,8 +6567,8 @@ function cloneMindMapExportScene(
 	return {
 		...scene,
 		bounds: { ...scene.bounds },
-		paperTexture:
-			scene.paperTexture === null ? null : { ...scene.paperTexture },
+		canvasTexture:
+			scene.canvasTexture === null ? null : { ...scene.canvasTexture },
 		primitives: scene.primitives.map(cloneMindMapExportPrimitive),
 		nodeShapes: [...scene.nodeShapes],
 	};
@@ -6462,6 +6608,7 @@ function cloneMindMapExportPaint(
 		case "color":
 			return { kind: "color", value: paint.value };
 		case "hatch":
+		case "speckle":
 			return { ...paint };
 	}
 }
@@ -6804,7 +6951,7 @@ async function appendExportEdgePrimitives(
 				fill: { kind: "color", value: color },
 				stroke: "transparent",
 				strokeWidth: 0,
-				opacity: 0.78,
+				opacity: markerEffect.opacity,
 			});
 		}
 		options.onProcessed();
@@ -6826,6 +6973,7 @@ interface MindMapExportNodeAssetContext {
 	readonly colors: MindMapThemeColorTokens;
 	readonly branchIndexes: ReadonlyMap<string, number>;
 	readonly assetRegistry: MindMapAssetRegistry;
+	readonly effects: DomSvgMindMapEffectRegistry;
 }
 
 function appendExportNodePrimitives(
@@ -6851,9 +6999,38 @@ function appendExportNodePrimitives(
 	const height = content.offsetHeight || positioned.height;
 	const x = positioned.x;
 	const y = positioned.y;
-	const stroke = resolveColor(style.borderTopColor || style.color);
+	const stroke = resolveColor(
+		style.getPropertyValue("--obmind-node-stroke").trim() ||
+			style.borderTopColor ||
+			style.color,
+	);
 	const strokeWidth = parseCssPixelValue(style.borderTopWidth, 0);
-	const fill = createExportNodeFill(element, style, stroke, resolveColor);
+	const strokeEffect = assetContext.effects.resolveNodeStroke(
+		assetContext.input.presentation.theme.tokens.effects.nodeStroke,
+		positioned.node.id,
+	);
+	const effectStroke = resolveExportNodeEffectStroke(
+		element,
+		stroke,
+		strokeEffect,
+		ownerWindow,
+		resolveColor,
+	);
+	const fillEffect = assetContext.effects.resolveNodeFill(
+		assetContext.input.presentation.theme.tokens.effects.nodeFill,
+	);
+	const fill = createExportNodeFill(
+		fillEffect,
+		style,
+		effectStroke,
+		resolveColor,
+	);
+	const baseStroke =
+		strokeEffect?.exportEffect.baseStroke === "replace"
+			? "transparent"
+			: stroke;
+	const baseStrokeWidth =
+		strokeEffect?.exportEffect.baseStroke === "replace" ? 0 : strokeWidth;
 
 	if (shape === "underline") {
 		const bottomWidth = parseCssPixelValue(style.borderBottomWidth, strokeWidth);
@@ -6876,23 +7053,23 @@ function appendExportNodePrimitives(
 				width,
 				height,
 				fill,
-				stroke,
-				strokeWidth,
+				baseStroke,
+				baseStrokeWidth,
 				style,
 			),
 		);
-		appendExportDoubleStroke(
+		appendExportNodeStrokeEffect(
 			primitives,
-			element,
 			positioned.node.id,
 			shape,
 			x,
 			y,
 			width,
 			height,
-			stroke,
+			effectStroke,
 			strokeWidth,
 			style,
+			strokeEffect,
 		);
 	}
 
@@ -6926,6 +7103,26 @@ function appendExportNodePrimitives(
 	);
 }
 
+function resolveExportNodeEffectStroke(
+	element: HTMLElement,
+	fallbackStroke: string,
+	effect: DomSvgNodeStrokeEffect | null,
+	ownerWindow: Window,
+	resolveColor: ExportColorResolver,
+): string {
+	if (effect?.contour === null || effect?.contour === undefined) {
+		return fallbackStroke;
+	}
+	const path = element.querySelector<SVGPathElement>(
+		".obmind-node-stroke-path",
+	);
+	if (path === null) {
+		return fallbackStroke;
+	}
+	const resolved = resolveColor(ownerWindow.getComputedStyle(path).stroke);
+	return resolved === "transparent" ? fallbackStroke : resolved;
+}
+
 function resolveExportNodeShape(
 	value: string | undefined,
 ): MindMapExportScene["nodeShapes"][number] {
@@ -6942,29 +7139,36 @@ function resolveExportNodeShape(
 	}
 }
 
+function resolveHandDrawnNodeContourShape(
+	shape: MindMapNodePresentation["shape"],
+): HandDrawnNodeContourShape | null {
+	switch (shape) {
+		case "rectangle":
+		case "rounded-rectangle":
+		case "pill":
+		case "ellipse":
+			return shape;
+		case "none":
+		case "underline":
+			return null;
+		case undefined:
+			return "rounded-rectangle";
+	}
+}
+
 function createExportNodeFill(
-	element: HTMLElement,
+	effect: DomSvgNodeFillEffect | null,
 	style: CSSStyleDeclaration,
 	stroke: string,
 	resolveColor: ExportColorResolver,
 ): MindMapExportPaint {
-	if (element.dataset.obmindNodeFillEffect !== "pencil-hatch") {
-		return { kind: "color", value: resolveColor(style.backgroundColor) };
-	}
-	return {
-		kind: "hatch",
-		background: resolveColor(style.backgroundColor),
-		color: stroke,
-		gap: parseCssPixelValue(
-			style.getPropertyValue("--obmind-effect-hatch-gap"),
-			7,
-		),
-		opacity: parseCssNumberValue(
-			style.getPropertyValue("--obmind-effect-hatch-opacity"),
-			0.08,
-		),
-		angle: 112,
-	};
+	const background = resolveColor(style.backgroundColor);
+	return (
+		effect?.createExportPaint({ background, stroke }) ?? {
+			kind: "color",
+			value: background,
+		}
+	);
 }
 
 function createExportNodeShapePrimitive(
@@ -7013,9 +7217,8 @@ function createExportNodeShapePrimitive(
 	};
 }
 
-function appendExportDoubleStroke(
+function appendExportNodeStrokeEffect(
 	primitives: MindMapExportPrimitive[],
-	element: HTMLElement,
 	id: string,
 	shape: MindMapExportScene["nodeShapes"][number],
 	x: number,
@@ -7025,30 +7228,54 @@ function appendExportDoubleStroke(
 	stroke: string,
 	strokeWidth: number,
 	style: CSSStyleDeclaration,
+	effect: DomSvgNodeStrokeEffect | null,
 ): void {
-	if (element.dataset.obmindNodeStrokeEffect !== "pencil-double") {
+	if (effect === null) {
 		return;
 	}
-	const inset = parseCssPixelValue(
-		style.getPropertyValue("--obmind-effect-border-inset"),
-		1.5,
+	const { exportEffect } = effect;
+	const effectStrokeWidth = Math.max(
+		exportEffect.minimumWidth,
+		strokeWidth * exportEffect.widthScale,
 	);
-	const offsetX = parseCssPixelValue(
-		style.getPropertyValue("--obmind-effect-border-offset-x"),
-		0,
-	);
-	const offsetY = parseCssPixelValue(
-		style.getPropertyValue("--obmind-effect-border-offset-y"),
-		0,
-	);
-	const rotation = parseCssNumberValue(
-		style.getPropertyValue("--obmind-effect-border-rotation"),
-		0,
-	);
-	const opacity = parseCssNumberValue(
-		style.getPropertyValue("--obmind-effect-border-opacity"),
-		0.34,
-	);
+	const contourShape = resolveHandDrawnNodeContourShape(shape);
+	if (effect.contour !== null && contourShape !== null) {
+		const contourInset = Math.max(
+			exportEffect.inset,
+			effect.contour.roughness + effectStrokeWidth / 2 + 0.25,
+		);
+		const contour = createHandDrawnNodeContour({
+			shape: contourShape,
+			width,
+			height,
+			radius:
+				shape === "pill"
+					? Math.min(width, height) / 2
+					: parseCssPixelValue(style.borderTopLeftRadius, 8),
+			inset: contourInset,
+			stableKey: id,
+			roughness: effect.contour.roughness,
+			sampleSpacing: effect.contour.sampleSpacing,
+			maximumPointCount: effect.contour.maximumPointCount,
+		}).map((point) => ({ x: x + point.x, y: y + point.y }));
+		primitives.push({
+			kind: "path",
+			id: `${id}:contour`,
+			data: createClosedPolylinePathData(contour),
+			fill: { kind: "none" },
+			stroke,
+			strokeWidth: effectStrokeWidth,
+			dashArray: effect.contour.dashArray ?? undefined,
+			lineCap: "round",
+			lineJoin: "round",
+			opacity: exportEffect.opacity,
+		});
+		return;
+	}
+	const inset = exportEffect.inset;
+	const offsetX = exportEffect.offsetX;
+	const offsetY = exportEffect.offsetY;
+	const rotation = exportEffect.rotationDegrees;
 	const innerWidth = Math.max(1, width - inset * 2);
 	const innerHeight = Math.max(1, height - inset * 2);
 	const primitive = createExportNodeShapePrimitive(
@@ -7060,12 +7287,12 @@ function appendExportDoubleStroke(
 		innerHeight,
 		{ kind: "none" },
 		stroke,
-		Math.max(0.7, strokeWidth * 0.62),
+		effectStrokeWidth,
 		style,
 	);
 	primitives.push({
 		...primitive,
-		opacity,
+		opacity: exportEffect.opacity,
 		transform:
 			Math.abs(rotation) > 0.001
 				? `rotate(${String(rotation)} ${String(x + width / 2)} ${String(y + height / 2)})`
@@ -7569,21 +7796,6 @@ function parseCssPixelValue(
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function parseCssNumberValue(
-	value: string | undefined,
-	fallback: number,
-): number {
-	if (value === undefined) {
-		return fallback;
-	}
-	const trimmed = value.trim();
-	const parsed = Number.parseFloat(trimmed);
-	if (!Number.isFinite(parsed)) {
-		return fallback;
-	}
-	return trimmed.endsWith("%") ? parsed / 100 : parsed;
-}
-
 /**
  * Palette-only changes must repaint without invalidating measured topic
  * geometry. Keep only node override fields that can affect shape, content, or
@@ -7977,6 +8189,13 @@ function createPolylinePathData(
 	].join(" ");
 }
 
+function createClosedPolylinePathData(
+	points: readonly HandDrawnPoint[],
+): string {
+	const path = createPolylinePathData(points);
+	return path.length === 0 ? "" : `${path} Z`;
+}
+
 function sampleLayoutPath(path: LayoutPath): readonly HandDrawnPoint[] {
 	const points: HandDrawnPoint[] = [path.start];
 	let current: LayoutPoint = path.start;
@@ -8215,6 +8434,45 @@ interface ResolvedNodeAppearanceColors {
 	readonly branchColor?: MindMapThemeColor;
 }
 
+function applyNodeLinkControlStyles(
+	element: HTMLElement,
+	nodePresentation: MindMapNodePresentation | undefined,
+	appearanceColors: ResolvedNodeAppearanceColors,
+	colors: MindMapThemeColorTokens,
+	isRoot: boolean,
+): void {
+	setCssProperty(
+		element,
+		"--obmind-node-link-color",
+		resolveThemeColor(
+			appearanceColors.textColor ??
+				(isRoot ? colors.textOnAccent : colors.text),
+		),
+	);
+	setCssProperty(
+		element,
+		"--obmind-node-link-inset",
+		nodePresentation?.paddingInline === undefined
+			? null
+			: `${nodePresentation.paddingInline}px`,
+	);
+	setCssProperty(
+		element,
+		"--obmind-node-link-control-size",
+		`${MIND_MAP_NODE_LINK_CONTROL_SIZE}px`,
+	);
+	setCssProperty(
+		element,
+		"--obmind-node-link-control-gap",
+		`${MIND_MAP_NODE_LINK_CONTROL_GAP}px`,
+	);
+	setCssProperty(
+		element,
+		"--obmind-node-link-label-gap",
+		`${MIND_MAP_NODE_LINK_LABEL_GAP}px`,
+	);
+}
+
 function applyNodeTaskControlStyles(
 	element: HTMLElement,
 	nodePresentation: MindMapNodePresentation | undefined,
@@ -8276,9 +8534,8 @@ function resolveNodeAppearanceColors(
 		nodePresentation?.branchColorIndex,
 	);
 	return {
-		fill: resolveNodeFill(
+	fill: resolveNodeFill(
 			nodePresentation,
-			presentation,
 			colors,
 			isRoot,
 		),
@@ -8611,19 +8868,11 @@ function resolveNodeDisclosureAccent(
 
 function resolveNodeFill(
 	nodePresentation: MindMapNodePresentation | undefined,
-	presentation: MindMapPresentation,
 	colors: MindMapThemeColorTokens,
 	isRoot: boolean,
 ): MindMapThemeColor {
-	const branchColor = getBranchColor(
-		colors,
-		nodePresentation?.branchColorIndex,
-	);
 	return (
 		nodePresentation?.fill ??
-		(!isRoot && presentation.theme.tokens.branches.colorNodeFill
-			? branchColor
-			: undefined) ??
 		(isRoot ? colors.surfaceEmphasis : colors.surface)
 	);
 }
@@ -8977,12 +9226,18 @@ function resolveNodePresentation(
 	);
 	const isRoot = depth === 0;
 	const branchColor = getBranchColor(colors, branchColorIndex);
-	const effectiveFill = resolveNodeFill(
-		basePresentation,
-		presentation,
+	const effectiveFill = resolveNodeFillForTreatment({
+		explicitFill: override?.fill,
+		roleFill: roleDefaults.fill,
+		fillSource: resolveMindMapNodeFillSource(
+			presentation.theme.tokens.nodeTreatment,
+			role,
+		),
+		branchColor,
 		colors,
 		isRoot,
-	);
+		branches: presentation.theme.tokens.branches,
+	});
 	const textColor = resolveMindMapNodeTextColor({
 		shape: basePresentation.shape,
 		effectiveFill,
@@ -9000,6 +9255,7 @@ function resolveNodePresentation(
 
 	return {
 		...basePresentation,
+		fill: effectiveFill,
 		textColor,
 		typography:
 			roleDefaults.typography === undefined &&
@@ -9014,6 +9270,50 @@ function resolveNodePresentation(
 						...override?.typography,
 					},
 	};
+}
+
+interface NodeFillTreatmentResolutionInput {
+	readonly explicitFill?: MindMapThemeColor;
+	readonly roleFill?: MindMapThemeColor;
+	readonly fillSource: ReturnType<typeof resolveMindMapNodeFillSource>;
+	readonly branchColor?: MindMapThemeColor;
+	readonly colors: MindMapThemeColorTokens;
+	readonly isRoot: boolean;
+	readonly branches: MindMapPresentation["theme"]["tokens"]["branches"];
+}
+
+/**
+ * Resolves the actual topic fill after the Style chooses a semantic source.
+ * Explicit node formatting remains authoritative; Styles never embed palette
+ * values and Palette role colors remain available through `automatic`.
+ */
+function resolveNodeFillForTreatment(
+	input: NodeFillTreatmentResolutionInput,
+): MindMapThemeColor {
+	if (input.explicitFill !== undefined) {
+		return input.explicitFill;
+	}
+	const automaticFallback = input.isRoot
+		? input.colors.surfaceEmphasis
+		: input.colors.surface;
+	switch (input.fillSource) {
+		case "branch":
+			return input.branchColor ?? automaticFallback;
+		case "surface":
+			return input.colors.surface;
+		case "surface-emphasis":
+			return input.colors.surfaceEmphasis;
+		case "canvas":
+			return input.colors.canvas;
+		case "automatic":
+			return (
+				input.roleFill ??
+				(!input.isRoot && input.branches.colorNodeFill
+					? input.branchColor
+					: undefined) ??
+				automaticFallback
+			);
+	}
 }
 
 function roleForNode(
@@ -9142,6 +9442,26 @@ function createSvgElement<K extends keyof SVGElementTagNameMap>(
 ): SVGElementTagNameMap[K] {
 	const factory: SvgElementFactory = ownerDocument;
 	return factory.createElementNS("http://www.w3.org/2000/svg", tagName);
+}
+
+function createMindMapNodeLinkIcon(ownerDocument: Document): SVGSVGElement {
+	const icon = createSvgElement(ownerDocument, "svg");
+	icon.classList.add("obmind-node-link-icon");
+	icon.setAttribute("viewBox", "0 0 24 24");
+	icon.setAttribute("aria-hidden", "true");
+	icon.setAttribute("focusable", "false");
+	icon.setAttribute("fill", "none");
+	icon.setAttribute("stroke", "currentColor");
+	icon.setAttribute("stroke-width", "2");
+	icon.setAttribute("stroke-linecap", "round");
+	icon.setAttribute("stroke-linejoin", "round");
+	const path = createSvgElement(ownerDocument, "path");
+	path.setAttribute(
+		"d",
+		"M8 12h8M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2",
+	);
+	icon.append(path);
+	return icon;
 }
 
 function createDomFragment(ownerDocument: Document): DocumentFragment {

@@ -1,4 +1,5 @@
 import {
+  cloneMindMapNodeTreatmentTokens,
   composeMindMapTheme,
   createDefaultMindMapPaletteSpec,
   createDefaultMindMapStyleSpec,
@@ -267,6 +268,7 @@ export function normalizeMindMapPresentationLibrary(
     (candidate) => acceptStyle(candidate, validators),
     validators.isStyleIdReserved,
     issues,
+    hasLegacyMindMapStyleNodeTreatment,
   );
   const palettes = normalizeCollection(
     record.palettes,
@@ -662,6 +664,7 @@ function normalizeCollection<TEntry extends { readonly id: string }>(
   accept: (candidate: unknown) => TEntry,
   isReserved: ((id: string) => boolean) | undefined,
   issues: MindMapPresentationLibraryIssue[],
+  needsMigration?: (candidate: unknown) => boolean,
 ): { readonly entries: readonly TEntry[]; readonly changed: boolean } {
   if (!Array.isArray(value)) {
     if (value !== undefined) {
@@ -680,6 +683,7 @@ function normalizeCollection<TEntry extends { readonly id: string }>(
   for (const [index, candidate] of value.entries()) {
     try {
       const entry = accept(candidate);
+      const migrated = needsMigration?.(candidate) === true;
       if (ids.has(entry.id)) {
         issues.push({
           collection,
@@ -703,6 +707,7 @@ function normalizeCollection<TEntry extends { readonly id: string }>(
       }
       ids.add(entry.id);
       entries.push(entry);
+      changed ||= migrated;
     } catch {
       issues.push({ collection, index, reason: "invalid-entry" });
       changed = true;
@@ -777,9 +782,36 @@ function acceptStyle(
   assertStyleColorSeparation(value);
   const candidate = cloneJson(value) as MindMapStyleSpec;
   assertAppearanceEnvelope(candidate, "style");
-  validators.validateStyle(candidate);
-  assertStyleColorSeparation(candidate);
-  return cloneStyle(candidate);
+  const normalized = normalizeMindMapStyleNodeTreatment(candidate);
+  validators.validateStyle(normalized);
+  assertStyleColorSeparation(normalized);
+  return cloneStyle(normalized);
+}
+
+/**
+ * Inserts the color-free default treatment for custom Styles saved before the
+ * role/depth fill contract existed. This is deliberately a library-data
+ * migration, not a visual mutation of Markdown or a Palette default.
+ */
+function normalizeMindMapStyleNodeTreatment(
+  style: MindMapStyleSpec,
+): MindMapStyleSpec {
+  return {
+    ...style,
+    tokens: {
+      ...style.tokens,
+      nodeTreatment: cloneMindMapNodeTreatmentTokens(
+        style.tokens.nodeTreatment,
+      ),
+    },
+  };
+}
+
+function hasLegacyMindMapStyleNodeTreatment(value: unknown): boolean {
+  if (!isRecord(value) || !isRecord(value.tokens)) {
+    return false;
+  }
+  return value.tokens.nodeTreatment === undefined;
 }
 
 function acceptPalette(

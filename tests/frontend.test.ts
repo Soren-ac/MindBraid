@@ -97,7 +97,15 @@ describe("frontend replacement contract", () => {
 			DEFAULT_MIND_MAP_FRONTEND_CAPABILITIES.styles.map(
 				(style) => style.id,
 			),
-		).toEqual(["pencil-sketch", "cloud", "colorful"]);
+		).toEqual([
+			"pencil-sketch",
+			"cloud",
+			"colorful",
+			"swiss-editorial",
+			"atlas-cards",
+			"technical-draft",
+			"charcoal",
+		]);
 		expect(
 			DEFAULT_MIND_MAP_FRONTEND_CAPABILITIES.styles.map(
 				({ id, origin, editable }) => ({ id, origin, editable }),
@@ -106,6 +114,10 @@ describe("frontend replacement contract", () => {
 			{ id: "pencil-sketch", origin: "built-in", editable: false },
 			{ id: "cloud", origin: "built-in", editable: false },
 			{ id: "colorful", origin: "built-in", editable: false },
+			{ id: "swiss-editorial", origin: "built-in", editable: false },
+			{ id: "atlas-cards", origin: "built-in", editable: false },
+			{ id: "technical-draft", origin: "built-in", editable: false },
+			{ id: "charcoal", origin: "built-in", editable: false },
 		]);
 		expect(
 			DEFAULT_MIND_MAP_FRONTEND_CAPABILITIES.palettes.map(
@@ -113,10 +125,12 @@ describe("frontend replacement contract", () => {
 			),
 		).toEqual([
 			"pencil-sketch",
-			"cloud",
 			"colorful",
 			"morandi-mint",
 			"retro-autumn",
+			"coastal-ink",
+			"deep-lagoon",
+			"coral-tide",
 		]);
 		expect(
 			DEFAULT_MIND_MAP_FRONTEND_CAPABILITIES.palettes.map(
@@ -124,10 +138,12 @@ describe("frontend replacement contract", () => {
 			),
 		).toEqual([
 			{ id: "pencil-sketch", origin: "built-in", editable: false },
-			{ id: "cloud", origin: "built-in", editable: false },
 			{ id: "colorful", origin: "built-in", editable: false },
 			{ id: "morandi-mint", origin: "built-in", editable: false },
 			{ id: "retro-autumn", origin: "built-in", editable: false },
+			{ id: "coastal-ink", origin: "built-in", editable: false },
+			{ id: "deep-lagoon", origin: "built-in", editable: false },
+			{ id: "coral-tide", origin: "built-in", editable: false },
 		]);
 		expect(DEFAULT_MIND_MAP_FRONTEND_CAPABILITIES.defaultGlobalFontId).toBe(
 			"style-default",

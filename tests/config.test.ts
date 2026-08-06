@@ -55,7 +55,7 @@ describe("ObMind settings normalization", () => {
         },
         layoutEngineId: "tree",
         styleId: "pencil-sketch",
-        paletteId: "cloud",
+		paletteId: "colorful",
       }),
     ).toEqual({
       language: "zh-CN",
@@ -69,17 +69,26 @@ describe("ObMind settings normalization", () => {
       },
       layoutEngineId: "tree",
       styleId: "pencil-sketch",
-      paletteId: "cloud",
+		paletteId: "colorful",
     });
   });
 
-  it("preserves both added built-in palette selections", () => {
+  it("preserves all extended built-in palette selections", () => {
     expect(
       normalizeObMindSettings({ paletteId: "morandi-mint" }).paletteId,
     ).toBe("morandi-mint");
     expect(
       normalizeObMindSettings({ paletteId: "retro-autumn" }).paletteId,
     ).toBe("retro-autumn");
+    expect(
+      normalizeObMindSettings({ paletteId: "coastal-ink" }).paletteId,
+    ).toBe("coastal-ink");
+    expect(
+      normalizeObMindSettings({ paletteId: "deep-lagoon" }).paletteId,
+    ).toBe("deep-lagoon");
+    expect(
+      normalizeObMindSettings({ paletteId: "coral-tide" }).paletteId,
+    ).toBe("coral-tide");
     expect(DEFAULT_SETTINGS.paletteId).toBe("colorful");
   });
 
@@ -93,11 +102,27 @@ describe("ObMind settings normalization", () => {
 
     expect(
       normalizeObMindSettings({ themeId: "obsidian-native" }),
-    ).toMatchObject({
-      styleId: "cloud",
-      paletteId: "cloud",
-    });
+	).toMatchObject({
+		styleId: "cloud",
+		paletteId: "colorful",
+	});
+	expect(normalizeObMindSettings({ themeId: "cloud" })).toMatchObject({
+		styleId: "cloud",
+		paletteId: "colorful",
+	});
   });
+
+	it("falls back from the retired Aurora palette without removing the Cloud style", () => {
+		expect(
+			normalizeObMindSettings({
+				styleId: "cloud",
+				paletteId: "cloud",
+			}),
+		).toMatchObject({
+			styleId: "cloud",
+			paletteId: "colorful",
+		});
+	});
 
   it("normalizes system, light, and dark appearance modes", () => {
     for (const appearanceMode of ["system", "light", "dark"] as const) {

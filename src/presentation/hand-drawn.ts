@@ -29,6 +29,43 @@ export interface HandDrawnStrokeOptions {
   readonly passCount?: 1 | 2;
 }
 
+/**
+ * Closed node shapes that can be represented by a single contour. Callers
+ * intentionally skip non-closed node treatments such as `none` and
+ * `underline` before calling this framework-free helper.
+ */
+export type HandDrawnNodeContourShape =
+  | "rectangle"
+  | "rounded-rectangle"
+  | "pill"
+  | "ellipse";
+
+/**
+ * Local node-box geometry for a deterministic, single-pass rough contour.
+ *
+ * Points are returned in local node coordinates. `inset` moves the regular
+ * contour inward from all four edges before roughness is applied. The final
+ * point is always an exact copy of the first point so SVG and export callers
+ * can serialize it as one closed polyline without inferring closure.
+ */
+export interface HandDrawnNodeContourOptions {
+  readonly shape: HandDrawnNodeContourShape;
+  readonly width: number;
+  readonly height: number;
+  /** Corner radius for `rounded-rectangle`; `pill` resolves its own radius. */
+  readonly radius?: number;
+  /** Optional inward distance from the node bounds. Defaults to zero. */
+  readonly inset?: number;
+  /** Semantic node key; never use a render-order index. */
+  readonly stableKey: string;
+  /** Maximum normal displacement in local scene pixels. */
+  readonly roughness?: number;
+  /** Approximate regular-contour point spacing in local scene pixels. */
+  readonly sampleSpacing?: number;
+  /** Hard cap, including the repeated final closure point. */
+  readonly maximumPointCount?: number;
+}
+
 export interface HandDrawnBorderParameters {
   /** Rotation for a non-layout-affecting inner border pseudo-element. */
   readonly rotationDegrees: number;
@@ -72,7 +109,23 @@ const MINIMUM_SAMPLE_SPACING = 4;
 const MAXIMUM_SAMPLE_SPACING = 64;
 const MINIMUM_POINT_COUNT = 3;
 const MAXIMUM_POINT_COUNT = 256;
+const DEFAULT_CONTOUR_MAXIMUM_POINT_COUNT = 96;
+const MINIMUM_CLOSED_CONTOUR_POINT_COUNT = 9;
 const UINT32_RANGE = 0x1_0000_0000;
+
+interface ContourSegment {
+  readonly length: number;
+  readonly pointAt: (progress: number) => HandDrawnPoint;
+}
+
+interface NodeContourBounds {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+  readonly right: number;
+  readonly bottom: number;
+}
 
 /**
  * Create one or two stable pencil strokes around a source polyline.
@@ -136,6 +189,76 @@ export function createHandDrawnStrokes(
   }
 
   return strokes;
+}
+
+/**
+ * Create one deterministic, rough, closed local contour for a node shape.
+ *
+ * This does not create DOM/SVG objects and intentionally does not share the
+ * open-polyline jitter used by `createHandDrawnStrokes`: a node contour has no
+ * endpoints to taper, and its seam must remain exact. With zero roughness the
+ * returned points lie on the regular shape outline.
+ */
+export function createHandDrawnNodeContour(
+  options: HandDrawnNodeContourOptions,
+): readonly HandDrawnPoint[] {
+  assertNodeContourShape(options.shape);
+  const width = assertNonNegativeFinite(options.width, "width");
+  const height = assertNonNegativeFinite(options.height, "height");
+  const requestedInset = finiteInRange(
+    options.inset,
+    0,
+    0,
+    Math.min(width, height) / 2,
+  );
+  const bounds: NodeContourBounds = {
+    left: requestedInset,
+    top: requestedInset,
+    width: Math.max(0, width - requestedInset * 2),
+    height: Math.max(0, height - requestedInset * 2),
+    right: Math.max(requestedInset, width - requestedInset),
+    bottom: Math.max(requestedInset, height - requestedInset),
+  };
+  const radius = finiteInRange(
+    options.radius,
+    0,
+    0,
+    Math.min(bounds.width, bounds.height) / 2,
+  );
+  const roughness = finiteInRange(
+    options.roughness,
+    DEFAULT_ROUGHNESS,
+    0,
+    4,
+  );
+  const sampleSpacing = finiteInRange(
+    options.sampleSpacing,
+    DEFAULT_SAMPLE_SPACING,
+    MINIMUM_SAMPLE_SPACING,
+    MAXIMUM_SAMPLE_SPACING,
+  );
+  const maximumPointCount = Math.round(
+    finiteInRange(
+      options.maximumPointCount,
+      DEFAULT_CONTOUR_MAXIMUM_POINT_COUNT,
+      MINIMUM_CLOSED_CONTOUR_POINT_COUNT,
+      MAXIMUM_POINT_COUNT,
+    ),
+  );
+  const regularPoints = createRegularNodeContour(
+    options.shape,
+    bounds,
+    radius,
+    sampleSpacing,
+    maximumPointCount - 1,
+  );
+  const roughPoints = jitterClosedContour(
+    regularPoints,
+    roughness,
+    `${options.stableKey}\u0000node-contour:${options.shape}:${width}:${height}:${radius}:${requestedInset}`,
+  );
+
+  return closeContour(roughPoints);
 }
 
 /**
@@ -420,6 +543,375 @@ function ensureMinimumPoints(
     return points;
   }
   return [copyPoint(first), interpolate(first, last, 0.5), copyPoint(last)];
+}
+
+function createRegularNodeContour(
+  shape: HandDrawnNodeContourShape,
+  bounds: NodeContourBounds,
+  radius: number,
+  sampleSpacing: number,
+  maximumUniquePointCount: number,
+): readonly HandDrawnPoint[] {
+  const segments = createNodeContourSegments(shape, bounds, radius).filter(
+    (segment) => segment.length > 0,
+  );
+  if (segments.length === 0) {
+    return [{ x: bounds.left, y: bounds.top }];
+  }
+
+  const totalLength = segments.reduce(
+    (sum, segment) => sum + segment.length,
+    0,
+  );
+  const minimumUniquePointCount =
+    shape === "rectangle" ? 4 : 8;
+  const desiredUniquePointCount = Number.isFinite(totalLength)
+    ? Math.max(
+        minimumUniquePointCount,
+        segments.length,
+        Math.ceil(totalLength / sampleSpacing),
+      )
+    : maximumUniquePointCount;
+  const uniquePointCount = Math.min(
+    maximumUniquePointCount,
+    desiredUniquePointCount,
+  );
+  const sampleCounts = allocateContourSamples(segments, uniquePointCount);
+  const points: HandDrawnPoint[] = [];
+
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+    const segment = segments[segmentIndex];
+    const sampleCount = sampleCounts[segmentIndex];
+    if (segment === undefined || sampleCount === undefined) {
+      continue;
+    }
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+      points.push(
+        roundContourPoint(segment.pointAt(sampleIndex / sampleCount)),
+      );
+    }
+  }
+
+  return points;
+}
+
+function createNodeContourSegments(
+  shape: HandDrawnNodeContourShape,
+  bounds: NodeContourBounds,
+  requestedRadius: number,
+): readonly ContourSegment[] {
+  switch (shape) {
+    case "rectangle":
+      return createRectangleContourSegments(bounds);
+    case "rounded-rectangle":
+      return createRoundedRectangleContourSegments(bounds, requestedRadius);
+    case "pill":
+      return createRoundedRectangleContourSegments(
+        bounds,
+        Math.min(bounds.width, bounds.height) / 2,
+      );
+    case "ellipse":
+      return createEllipseContourSegments(bounds);
+  }
+}
+
+function createRectangleContourSegments(
+  bounds: NodeContourBounds,
+): readonly ContourSegment[] {
+  const topLeft = { x: bounds.left, y: bounds.top };
+  const topRight = { x: bounds.right, y: bounds.top };
+  const bottomRight = { x: bounds.right, y: bounds.bottom };
+  const bottomLeft = { x: bounds.left, y: bounds.bottom };
+  return [
+    createLineContourSegment(topLeft, topRight),
+    createLineContourSegment(topRight, bottomRight),
+    createLineContourSegment(bottomRight, bottomLeft),
+    createLineContourSegment(bottomLeft, topLeft),
+  ];
+}
+
+function createRoundedRectangleContourSegments(
+  bounds: NodeContourBounds,
+  requestedRadius: number,
+): readonly ContourSegment[] {
+  const radius = Math.min(
+    Math.max(0, requestedRadius),
+    bounds.width / 2,
+    bounds.height / 2,
+  );
+  if (radius === 0) {
+    return createRectangleContourSegments(bounds);
+  }
+
+  const topLeft = { x: bounds.left + radius, y: bounds.top };
+  const topRight = { x: bounds.right - radius, y: bounds.top };
+  const rightTop = { x: bounds.right, y: bounds.top + radius };
+  const rightBottom = { x: bounds.right, y: bounds.bottom - radius };
+  const bottomRight = { x: bounds.right - radius, y: bounds.bottom };
+  const bottomLeft = { x: bounds.left + radius, y: bounds.bottom };
+  const leftBottom = { x: bounds.left, y: bounds.bottom - radius };
+  const leftTop = { x: bounds.left, y: bounds.top + radius };
+
+  return [
+    createLineContourSegment(topLeft, topRight),
+    createArcContourSegment(
+      { x: bounds.right - radius, y: bounds.top + radius },
+      radius,
+      -Math.PI / 2,
+      0,
+    ),
+    createLineContourSegment(rightTop, rightBottom),
+    createArcContourSegment(
+      { x: bounds.right - radius, y: bounds.bottom - radius },
+      radius,
+      0,
+      Math.PI / 2,
+    ),
+    createLineContourSegment(bottomRight, bottomLeft),
+    createArcContourSegment(
+      { x: bounds.left + radius, y: bounds.bottom - radius },
+      radius,
+      Math.PI / 2,
+      Math.PI,
+    ),
+    createLineContourSegment(leftBottom, leftTop),
+    createArcContourSegment(
+      { x: bounds.left + radius, y: bounds.top + radius },
+      radius,
+      Math.PI,
+      Math.PI * 1.5,
+    ),
+  ];
+}
+
+function createEllipseContourSegments(
+  bounds: NodeContourBounds,
+): readonly ContourSegment[] {
+  const centerX = bounds.left + bounds.width / 2;
+  const centerY = bounds.top + bounds.height / 2;
+  const radiusX = bounds.width / 2;
+  const radiusY = bounds.height / 2;
+  const quarterLength = estimateEllipsePerimeter(radiusX, radiusY) / 4;
+  const segments: ContourSegment[] = [];
+
+  for (let index = 0; index < 4; index += 1) {
+    const startAngle = -Math.PI / 2 + (Math.PI * index) / 2;
+    segments.push({
+      length: quarterLength,
+      pointAt(progress): HandDrawnPoint {
+        const angle = startAngle + (Math.PI * progress) / 2;
+        return {
+          x: centerX + Math.cos(angle) * radiusX,
+          y: centerY + Math.sin(angle) * radiusY,
+        };
+      },
+    });
+  }
+
+  return segments;
+}
+
+function createLineContourSegment(
+  start: HandDrawnPoint,
+  end: HandDrawnPoint,
+): ContourSegment {
+  return {
+    length: Math.hypot(end.x - start.x, end.y - start.y),
+    pointAt(progress): HandDrawnPoint {
+      return interpolate(start, end, progress);
+    },
+  };
+}
+
+function createArcContourSegment(
+  center: HandDrawnPoint,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+): ContourSegment {
+  return {
+    length: Math.abs(endAngle - startAngle) * radius,
+    pointAt(progress): HandDrawnPoint {
+      const angle = startAngle + (endAngle - startAngle) * progress;
+      return {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
+      };
+    },
+  };
+}
+
+function estimateEllipsePerimeter(radiusX: number, radiusY: number): number {
+  const sum = radiusX + radiusY;
+  if (sum === 0) {
+    return 0;
+  }
+  const difference = radiusX - radiusY;
+  const ratio = (difference * difference) / (sum * sum);
+  return Math.PI * sum * (1 + (3 * ratio) / (10 + Math.sqrt(4 - 3 * ratio)));
+}
+
+function allocateContourSamples(
+  segments: readonly ContourSegment[],
+  pointCount: number,
+): readonly number[] {
+  const sampleCounts = segments.map(() => 1);
+  let remaining = pointCount - sampleCounts.length;
+  if (remaining <= 0) {
+    return sampleCounts;
+  }
+
+  const totalLength = segments.reduce(
+    (sum, segment) => sum + segment.length,
+    0,
+  );
+  if (!Number.isFinite(totalLength)) {
+    for (let index = 0; remaining > 0; index = (index + 1) % sampleCounts.length) {
+      sampleCounts[index] = (sampleCounts[index] ?? 0) + 1;
+      remaining -= 1;
+    }
+    return sampleCounts;
+  }
+
+  while (remaining > 0) {
+    let selectedIndex = 0;
+    let selectedScore = Number.NEGATIVE_INFINITY;
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = segments[index];
+      const sampleCount = sampleCounts[index];
+      if (segment === undefined || sampleCount === undefined) {
+        continue;
+      }
+      const score = segment.length / (sampleCount + 1);
+      if (score > selectedScore) {
+        selectedIndex = index;
+        selectedScore = score;
+      }
+    }
+    sampleCounts[selectedIndex] = (sampleCounts[selectedIndex] ?? 0) + 1;
+    remaining -= 1;
+  }
+
+  return sampleCounts;
+}
+
+function jitterClosedContour(
+  points: readonly HandDrawnPoint[],
+  roughness: number,
+  stableKey: string,
+): readonly HandDrawnPoint[] {
+  if (roughness === 0 || points.length < 2) {
+    return points.map(copyPoint);
+  }
+
+  const random = createStableRandom(stableKey);
+  const normalNoise = points.map(() => centered(random));
+  const tangentNoise = points.map(() => centered(random));
+  const count = points.length;
+
+  return points.map((point, index) => {
+    const previous = points[(index - 1 + count) % count];
+    const next = points[(index + 1) % count];
+    if (previous === undefined || next === undefined) {
+      return copyPoint(point);
+    }
+    const tangent = normalizeVector(next.x - previous.x, next.y - previous.y);
+    if (tangent === null) {
+      return copyPoint(point);
+    }
+    const previousIndex = (index - 1 + count) % count;
+    const nextIndex = (index + 1) % count;
+    const smoothedNormalNoise =
+      ((normalNoise[previousIndex] ?? 0) +
+        (normalNoise[index] ?? 0) * 2 +
+        (normalNoise[nextIndex] ?? 0)) /
+      4;
+    const smoothedTangentNoise =
+      ((tangentNoise[previousIndex] ?? 0) +
+        (tangentNoise[index] ?? 0) * 2 +
+        (tangentNoise[nextIndex] ?? 0)) /
+      4;
+    const normalOffset = smoothedNormalNoise * roughness;
+    const tangentOffset = smoothedTangentNoise * roughness * 0.16;
+    const normalX = -tangent.y;
+    const normalY = tangent.x;
+
+    return roundContourPoint({
+      x:
+        point.x +
+        normalX * normalOffset +
+        tangent.x * tangentOffset,
+      y:
+        point.y +
+        normalY * normalOffset +
+        tangent.y * tangentOffset,
+    });
+  });
+}
+
+function normalizeVector(
+  x: number,
+  y: number,
+): HandDrawnPoint | null {
+  const scale = Math.max(Math.abs(x), Math.abs(y));
+  if (scale === 0 || !Number.isFinite(scale)) {
+    return null;
+  }
+  const scaledX = x / scale;
+  const scaledY = y / scale;
+  const length = Math.hypot(scaledX, scaledY);
+  if (length === 0 || !Number.isFinite(length)) {
+    return null;
+  }
+  return { x: scaledX / length, y: scaledY / length };
+}
+
+function closeContour(
+  points: readonly HandDrawnPoint[],
+): readonly HandDrawnPoint[] {
+  const first = points[0];
+  if (first === undefined) {
+    return [];
+  }
+  return [...points.map(copyPoint), copyPoint(first)];
+}
+
+function roundContourPoint(point: HandDrawnPoint): HandDrawnPoint {
+  return {
+    x: roundContourCoordinate(point.x),
+    y: roundContourCoordinate(point.y),
+  };
+}
+
+function roundContourCoordinate(value: number): number {
+  if (value === 0) {
+    return 0;
+  }
+  const multiplier = 1_000_000;
+  if (Math.abs(value) > Number.MAX_VALUE / multiplier) {
+    return value;
+  }
+  return roundTo(value, 6);
+}
+
+function assertNodeContourShape(
+  shape: HandDrawnNodeContourShape,
+): void {
+  if (
+    shape !== "rectangle" &&
+    shape !== "rounded-rectangle" &&
+    shape !== "pill" &&
+    shape !== "ellipse"
+  ) {
+    throw new RangeError("Unknown hand-drawn node contour shape.");
+  }
+}
+
+function assertNonNegativeFinite(value: number, name: string): number {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError(`Hand-drawn node contour ${name} must be finite and non-negative.`);
+  }
+  return value;
 }
 
 function createStableRandom(seedOrKey: number | string): () => number {

@@ -65,6 +65,15 @@ describe("localized capability snapshots", () => {
 			localized.palettes.find(({ id }) => id === "morandi-mint")?.label,
 		).toBe("莫兰迪薄荷");
 		expect(
+			localized.palettes.find(({ id }) => id === "coastal-ink")?.label,
+		).toBe("海岸墨色");
+		expect(
+			localized.palettes.find(({ id }) => id === "deep-lagoon")?.label,
+		).toBe("深海潟湖");
+		expect(
+			localized.palettes.find(({ id }) => id === "coral-tide")?.label,
+		).toBe("珊瑚潮汐");
+		expect(
 			localized.styles.find(({ id }) => id === "user-style-demo")?.label,
 		).toBe("My paper style");
 		expect(

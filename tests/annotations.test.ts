@@ -458,7 +458,7 @@ describe("annotation persistence", () => {
 		});
 	});
 
-	it("migrates v3 documents with style-default global formatting", () => {
+	it("migrates the retired cloud palette in v3 documents", () => {
 		const migrated = deserializeAnnotationStore({
 			version: 3,
 			annotations: [],
@@ -467,7 +467,7 @@ describe("annotation persistence", () => {
 					path: NOTE_PATH,
 					layout: null,
 					styleId: "cloud",
-					paletteId: "colorful",
+					paletteId: "cloud",
 					nodes: [],
 					edges: [],
 					decorations: [],
@@ -492,7 +492,7 @@ describe("annotation persistence", () => {
 		});
 	});
 
-	it("migrates v4 documents while preserving existing global formatting", () => {
+	it("migrates the retired cloud palette in v4 documents while preserving global formatting", () => {
 		const migrated = deserializeAnnotationStore({
 			version: 4,
 			annotations: [],
@@ -519,12 +519,98 @@ describe("annotation persistence", () => {
 			documents: [
 				{
 					styleId: "pencil-sketch",
-					paletteId: "cloud",
+					paletteId: "colorful",
 					fontFamilyId: "handwritten",
 					connectorWidthId: "thick",
 					connectorProfileId: null,
 				},
 			],
+		});
+	});
+
+	it("migrates the retired cloud palette in v5 documents without changing other palette references", () => {
+		const migrated = deserializeAnnotationStore({
+			version: 5,
+			annotations: [],
+			documents: [
+				{
+					path: NOTE_PATH,
+					layout: null,
+					styleId: "pencil-sketch",
+					paletteId: "cloud",
+					fontFamilyId: "handwritten",
+					connectorWidthId: "thick",
+					connectorProfileId: "rounded",
+					nodes: [],
+					edges: [],
+					decorations: [],
+					collapsed: [],
+					viewport: null,
+				},
+				{
+					path: "Folder/Other.md",
+					layout: null,
+					styleId: "pencil-sketch",
+					paletteId: "morandi-mint",
+					fontFamilyId: null,
+					connectorWidthId: null,
+					connectorProfileId: null,
+					nodes: [],
+					edges: [],
+					decorations: [],
+					collapsed: [],
+					viewport: null,
+				},
+			],
+		});
+
+		expect(migrated).toMatchObject({ migrated: true });
+		expect(migrated?.store).toMatchObject({
+			version: 5,
+			documents: [
+				{
+					path: NOTE_PATH,
+					paletteId: "colorful",
+					fontFamilyId: "handwritten",
+					connectorWidthId: "thick",
+					connectorProfileId: "rounded",
+				},
+				{
+					path: "Folder/Other.md",
+					paletteId: "morandi-mint",
+				},
+			],
+		});
+	});
+
+	it("does not report a migration for v5 documents without retired palette IDs", () => {
+		const loaded = deserializeAnnotationStore({
+			version: 5,
+			annotations: [],
+			documents: [
+				{
+					path: NOTE_PATH,
+					layout: null,
+					styleId: "pencil-sketch",
+					paletteId: "morandi-mint",
+					fontFamilyId: null,
+					connectorWidthId: null,
+					connectorProfileId: null,
+					nodes: [],
+					edges: [],
+					decorations: [],
+					collapsed: [],
+					viewport: null,
+				},
+			],
+		});
+
+		expect(loaded).toMatchObject({
+			migrated: false,
+			store: {
+				version: 5,
+				documents: [{ paletteId: "morandi-mint" }],
+			},
 		});
 	});
 
@@ -548,7 +634,7 @@ describe("annotation persistence", () => {
 				orientation: "top-to-bottom" as const,
 				options: { compactness: "compact", alignSameLevel: false },
 			},
-			theme: composition.compose("pencil-sketch", "cloud"),
+			theme: composition.compose("pencil-sketch", "morandi-mint"),
 			formatting: formatting.compose(
 				"handwritten",
 				"thick",
@@ -618,7 +704,7 @@ describe("annotation persistence", () => {
 				field === "style" ? base.theme.styleId : "pencil-sketch",
 			);
 			expect(hydrated.presentation.theme.paletteId, field).toBe(
-				field === "palette" ? base.theme.paletteId : "cloud",
+				field === "palette" ? base.theme.paletteId : "morandi-mint",
 			);
 			expect(hydrated.presentation.formatting.fontFamily.id, field).toBe(
 				field === "font" ? base.formatting.fontFamily.id : "handwritten",
@@ -752,7 +838,7 @@ describe("annotation persistence", () => {
 			base,
 			{
 				...styled,
-				theme: composition.compose("pencil-sketch", "cloud"),
+				theme: composition.compose("pencil-sketch", "morandi-mint"),
 			},
 			new Set([parent.id]),
 			{ centerX: 30, centerY: 40, scale: 1.5 },
@@ -771,7 +857,7 @@ describe("annotation persistence", () => {
 
 		expect(undone).not.toBeNull();
 		expect(undone?.styleId).toBeNull();
-		expect(undone?.paletteId).toBe("cloud");
+		expect(undone?.paletteId).toBe("morandi-mint");
 		expect(undone?.collapsed).toEqual(latestInteraction.collapsed);
 		expect(undone?.viewport).toEqual(latestInteraction.viewport);
 
@@ -787,7 +873,7 @@ describe("annotation persistence", () => {
 		);
 
 		expect(redone?.styleId).toBe("pencil-sketch");
-		expect(redone?.paletteId).toBe("cloud");
+		expect(redone?.paletteId).toBe("morandi-mint");
 		expect(redone?.collapsed).toEqual(latestInteraction.collapsed);
 		expect(redone?.viewport).toEqual(latestInteraction.viewport);
 	});
@@ -921,7 +1007,7 @@ describe("annotation persistence", () => {
 		const paletteChange = captureDocumentAnnotations(
 			document,
 			base,
-			{ ...base, theme: composition.compose("colorful", "cloud") },
+			{ ...base, theme: composition.compose("colorful", "morandi-mint") },
 			new Set(),
 			null,
 		);
@@ -933,7 +1019,7 @@ describe("annotation persistence", () => {
 		);
 
 		expect(merged.styleId).toBe("pencil-sketch");
-		expect(merged.paletteId).toBe("cloud");
+		expect(merged.paletteId).toBe("morandi-mint");
 	});
 
 	it("merges global font and connector width fields independently", () => {
@@ -1081,7 +1167,7 @@ describe("annotation persistence", () => {
 			{
 				kind: "palette",
 				removedId: "custom-palette-1",
-				fallbackId: "cloud",
+				fallbackId: "colorful",
 			},
 		);
 
@@ -1089,7 +1175,7 @@ describe("annotation persistence", () => {
 		expect(withoutPalette.documents[0]).toMatchObject({
 			path: NOTE_PATH,
 			styleId: "colorful",
-			paletteId: "cloud",
+			paletteId: "colorful",
 			nodes: first.nodes,
 			collapsed: first.collapsed,
 			viewport: first.viewport,
@@ -1097,7 +1183,7 @@ describe("annotation persistence", () => {
 		expect(withoutPalette.documents[1]).toMatchObject({
 			path: "Folder/Other.md",
 			styleId: "colorful",
-			paletteId: "cloud",
+			paletteId: "colorful",
 		});
 		expect(() =>
 			replaceDocumentAnnotationAppearanceReferences(store, {

@@ -47,6 +47,40 @@ const validators: MindMapPresentationLibraryValidators = {
 };
 
 describe("custom presentation library", () => {
+	it("migrates legacy custom styles to the default role/depth fill treatment", () => {
+		const current = createDefaultMindMapStyleSpec({
+			id: "custom-style-1",
+			label: "Legacy card treatment",
+		});
+		const { nodeTreatment: _nodeTreatment, ...legacyTokens } =
+			current.tokens;
+		const loaded = normalizeMindMapPresentationLibrary(
+			{
+				version: 1,
+				nextStyleOrdinal: 2,
+				nextPaletteOrdinal: 1,
+				styles: [
+					{
+						...current,
+						tokens: legacyTokens,
+					},
+				],
+				palettes: [],
+			},
+			validators,
+		);
+
+		expect(loaded.migrated).toBe(true);
+		expect(loaded.issues).toEqual([]);
+		expect(
+			loaded.library.styles[0]?.tokens.nodeTreatment.fillSourceByRole,
+		).toEqual({
+			root: "automatic",
+			mainTopic: "automatic",
+			subtopic: "automatic",
+		});
+	});
+
   it("creates document-independent, non-reused IDs for independent style and palette definitions", () => {
     const initial = createMindMapPresentationLibrary();
     const firstStyle = createMindMapPresentationLibraryStyle(

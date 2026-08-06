@@ -46,7 +46,7 @@ const exportScene: MindMapExportScene = {
 	scope: "visible-map",
 	bounds: { x: 0, y: 0, width: 120, height: 80 },
 	backgroundColor: "#ffffff",
-	paperTexture: null,
+	canvasTexture: null,
 	primitives: [],
 	nodeShapes: [],
 };
@@ -580,7 +580,7 @@ describe("BasicMindMapFrontend style and color-scheme presets", () => {
 			() => undefined,
 		);
 		frontend.mount(document.body);
-		frontend.update(createReadyFrame("pencil-sketch", "cloud"));
+		frontend.update(createReadyFrame("pencil-sketch", "colorful"));
 
 		const styleButtons = Array.from(
 			document.body.querySelectorAll<HTMLButtonElement>(
@@ -598,23 +598,27 @@ describe("BasicMindMapFrontend style and color-scheme presets", () => {
 		const connectorWidth = document.body.querySelector<HTMLSelectElement>(
 			'[aria-label="Connector width stored for this document"]',
 		);
-		expect(styleButtons).toHaveLength(3);
-		expect(paletteButtons).toHaveLength(5);
+		expect(styleButtons).toHaveLength(7);
+		expect(paletteButtons).toHaveLength(7);
 		expect(paletteButtons.map((button) => button.textContent)).toEqual([
 			"Graphite",
-			"Aurora",
 			"Spectrum",
 			"Morandi Mint",
 			"Retro Autumn",
+			"Coastal Ink",
+			"Deep Lagoon",
+			"Coral Tide",
 		]);
 		expect(
 			paletteButtons.map((button) => button.getAttribute("aria-label")),
 		).toEqual([
 			"Graphite color scheme",
-			"Aurora color scheme",
 			"Spectrum color scheme",
 			"Morandi Mint color scheme",
 			"Retro Autumn color scheme",
+			"Coastal Ink color scheme",
+			"Deep Lagoon color scheme",
+			"Coral Tide color scheme",
 		]);
 		expect(
 			styleButtons.find(
@@ -623,12 +627,96 @@ describe("BasicMindMapFrontend style and color-scheme presets", () => {
 		).toBe("true");
 		expect(
 			paletteButtons.find(
-				(button) => button.dataset.obmindPaletteId === "cloud",
+				(button) => button.dataset.obmindPaletteId === "colorful",
 			)?.getAttribute("aria-pressed"),
 		).toBe("true");
 		expect(styleButtons.every((button) => button.querySelector("svg") !== null)).toBe(
 			true,
 		);
+		expect(
+			styleButtons
+				.find(
+					(button) =>
+						button.dataset.obmindStyleId === "technical-draft",
+				)
+				?.querySelector<HTMLElement>(".obmind-style-preview")?.dataset
+				.obmindCanvasEffect,
+		).toBe("technical-grid");
+		const technicalPreview = styleButtons
+			.find(
+				(button) => button.dataset.obmindStyleId === "technical-draft",
+			)
+			?.querySelector<HTMLElement>(".obmind-style-preview");
+		expect(technicalPreview?.dataset.obmindPreviewCanvasTreatment).toBe(
+			"technical-grid",
+		);
+		expect(
+			technicalPreview?.querySelectorAll(
+				'[data-obmind-preview-role="root"]',
+			).length,
+		).toBeGreaterThan(0);
+		const organicPreview = styleButtons
+			.find((button) => button.dataset.obmindStyleId === "cloud")
+			?.querySelector<HTMLElement>(".obmind-style-preview");
+		expect(
+			organicPreview?.querySelector(".obmind-style-preview-edge-tapered"),
+		).not.toBeNull();
+		const atlasPreview = styleButtons
+			.find((button) => button.dataset.obmindStyleId === "atlas-cards")
+			?.querySelector<HTMLElement>(".obmind-style-preview");
+		expect(
+			atlasPreview?.querySelectorAll(
+				'[data-obmind-preview-role="main-topic"][data-obmind-preview-fill-source="branch"]',
+			).length,
+		).toBeGreaterThan(0);
+		expect(
+			atlasPreview?.querySelectorAll(
+				'[data-obmind-preview-role="subtopic"][data-obmind-preview-fill-source="surface"]',
+			).length,
+		).toBeGreaterThan(0);
+		const swissPreview = styleButtons
+			.find(
+				(button) => button.dataset.obmindStyleId === "swiss-editorial",
+			)
+			?.querySelector<HTMLElement>(".obmind-style-preview");
+		expect(
+			swissPreview?.querySelectorAll(
+				'[data-obmind-preview-role="main-topic"] [data-obmind-node-shape="underline"]',
+			).length,
+		).toBe(2);
+		const charcoalPreview = styleButtons
+			.find((button) => button.dataset.obmindStyleId === "charcoal")
+			?.querySelector<HTMLElement>(".obmind-style-preview");
+		expect(charcoalPreview?.dataset.obmindCanvasEffect).toBe(
+			"charcoal-paper",
+		);
+		expect(
+			charcoalPreview?.querySelector<SVGElement>(
+				'[data-obmind-node-stroke-effect="charcoal-stroke"]',
+			),
+		).not.toBeNull();
+		const charcoalPreviewContour = charcoalPreview?.querySelector<SVGPathElement>(
+			'[data-obmind-node-stroke-effect="charcoal-stroke"]',
+		);
+		expect(charcoalPreviewContour?.tagName.toLowerCase()).toBe("path");
+		expect(charcoalPreviewContour?.getAttribute("d")).toMatch(
+			/^M .* L .* Z$/,
+		);
+		expect(
+			charcoalPreview?.querySelector<SVGElement>(
+				'[data-obmind-edge-effect="charcoal-edge"]',
+			),
+		).not.toBeNull();
+		expect(
+			charcoalPreview?.querySelector(".obmind-style-preview-node-echo"),
+		).toBeNull();
+		expect(
+			charcoalPreview
+				?.querySelector<SVGPathElement>(
+					'[data-obmind-node-stroke-effect="charcoal-stroke"]',
+				)
+				?.getAttribute("stroke-dasharray"),
+		).toBe("5.7 0.55 2.1 0.55 8.7 0.55");
 		expect(
 			paletteButtons.every((button) => button.querySelector("svg") !== null),
 		).toBe(true);
@@ -652,6 +740,15 @@ describe("BasicMindMapFrontend style and color-scheme presets", () => {
 		)?.click();
 		paletteButtons.find(
 			(button) => button.dataset.obmindPaletteId === "retro-autumn",
+		)?.click();
+		paletteButtons.find(
+			(button) => button.dataset.obmindPaletteId === "coastal-ink",
+		)?.click();
+		paletteButtons.find(
+			(button) => button.dataset.obmindPaletteId === "deep-lagoon",
+		)?.click();
+		paletteButtons.find(
+			(button) => button.dataset.obmindPaletteId === "coral-tide",
 		)?.click();
 		if (fontFamily === null || connectorWidth === null) {
 			throw new Error("Expected global formatting controls.");
@@ -680,6 +777,21 @@ describe("BasicMindMapFrontend style and color-scheme presets", () => {
 			expect(events).toContainEqual({
 				type: "change-palette",
 				paletteId: "retro-autumn",
+				scope: "document",
+			});
+			expect(events).toContainEqual({
+				type: "change-palette",
+				paletteId: "coastal-ink",
+				scope: "document",
+			});
+			expect(events).toContainEqual({
+				type: "change-palette",
+				paletteId: "deep-lagoon",
+				scope: "document",
+			});
+			expect(events).toContainEqual({
+				type: "change-palette",
+				paletteId: "coral-tide",
 				scope: "document",
 			});
 			expect(events).toContainEqual({
@@ -747,7 +859,7 @@ describe("BasicMindMapFrontend style and color-scheme presets", () => {
 		expect(
 			document.body.querySelector<HTMLButtonElement>(
 				'button[data-obmind-style-id="colorful"]',
-			)?.textContent,
+			)?.querySelector(".obmind-preset-card-label")?.textContent,
 		).toBe("Updated style name");
 		expect(
 			document.body.querySelector<HTMLButtonElement>(
@@ -1336,7 +1448,7 @@ describe("BasicMindMapFrontend export workflow", () => {
 			() => undefined,
 		);
 		frontend.mount(document.body);
-		frontend.update(createReadyFrame("colorful", "cloud"));
+		frontend.update(createReadyFrame("colorful", "colorful"));
 		document.body
 			.querySelector<HTMLButtonElement>('[aria-label="Export this mind map"]')
 			?.click();
@@ -1458,7 +1570,7 @@ describe("BasicMindMapFrontend export workflow", () => {
 			},
 		);
 		frontend.mount(document.body);
-		frontend.update(createReadyFrame("colorful", "cloud"));
+		frontend.update(createReadyFrame("colorful", "colorful"));
 		document.body
 			.querySelector<HTMLButtonElement>('[aria-label="Export this mind map"]')
 			?.click();
@@ -1571,7 +1683,7 @@ describe("BasicMindMapFrontend export workflow", () => {
 			services,
 		);
 		frontend.mount(document.body);
-		frontend.update(createReadyFrame("colorful", "cloud"));
+		frontend.update(createReadyFrame("colorful", "colorful"));
 		document.body
 			.querySelector<HTMLButtonElement>('[aria-label="Export this mind map"]')
 			?.click();
@@ -1627,7 +1739,7 @@ describe("BasicMindMapFrontend export workflow", () => {
 			() => undefined,
 		);
 		frontend.mount(document.body);
-		frontend.update(createReadyFrame("colorful", "cloud"));
+		frontend.update(createReadyFrame("colorful", "colorful"));
 		document.body
 			.querySelector<HTMLButtonElement>('[aria-label="Export this mind map"]')
 			?.click();
@@ -1707,7 +1819,7 @@ describe("BasicMindMapFrontend export workflow", () => {
 			},
 		);
 		frontend.mount(document.body);
-		frontend.update(createReadyFrame("colorful", "cloud"));
+		frontend.update(createReadyFrame("colorful", "colorful"));
 		document.body
 			.querySelector<HTMLButtonElement>('[aria-label="Export this mind map"]')
 			?.click();
@@ -1772,7 +1884,7 @@ describe("BasicMindMapFrontend export workflow", () => {
 			},
 		);
 		frontend.mount(document.body);
-		frontend.update(createReadyFrame("colorful", "cloud"));
+		frontend.update(createReadyFrame("colorful", "colorful"));
 		document.body
 			.querySelector<HTMLButtonElement>('[aria-label="Export this mind map"]')
 			?.click();

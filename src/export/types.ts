@@ -213,6 +213,15 @@ export type MindMapExportPaint =
 			readonly gap: number;
 			readonly opacity: number;
 			readonly angle: number;
+	  }
+	| {
+			/** Deterministic charcoal-dust pattern used by material Styles. */
+			readonly kind: "speckle";
+			readonly background: string;
+			readonly color: string;
+			readonly gap: number;
+			readonly radius: number;
+			readonly opacity: number;
 	  };
 
 interface MindMapExportPrimitiveBase {
@@ -300,15 +309,46 @@ export type MindMapExportPrimitive =
 	| MindMapExportCirclePrimitive
 	| MindMapExportTextPrimitive;
 
-export interface MindMapExportPaperTexture {
+export interface MindMapExportPaperGrainTexture {
 	readonly kind: "paper-grain";
-	readonly color: string;
+	readonly fineColor: string;
+	readonly coarseColor: string;
 	readonly fineCellSize: number;
 	readonly coarseCellSize: number;
 	readonly offsetX: number;
 	readonly offsetY: number;
 	readonly opacity: number;
 }
+
+export interface MindMapExportTechnicalGridTexture {
+	readonly kind: "technical-grid";
+	readonly minorColor: string;
+	readonly majorColor: string;
+	readonly cellSize: number;
+	readonly majorEvery: number;
+	readonly opacity: number;
+}
+
+export interface MindMapExportCharcoalPaperTexture {
+	readonly kind: "charcoal-paper";
+	readonly fineColor: string;
+	readonly coarseColor: string;
+	readonly fineCellSize: number;
+	readonly coarseCellSize: number;
+	readonly offsetX: number;
+	readonly offsetY: number;
+	readonly opacity: number;
+}
+
+/**
+ * Renderer-neutral canvas material captured in the immutable export scene.
+ * Palette colors are already resolved by the live adapter before this value
+ * crosses into the framework-free encoder boundary.
+ */
+export type MindMapExportCanvasTexture =
+	| MindMapExportPaperGrainTexture
+	| MindMapExportTechnicalGridTexture
+	| MindMapExportCharcoalPaperTexture;
 
 export interface MindMapExportScene {
 	readonly sourcePath: string;
@@ -317,7 +357,7 @@ export interface MindMapExportScene {
 	readonly scope: MindMapExportScope;
 	readonly bounds: MindMapExportBounds;
 	readonly backgroundColor: string;
-	readonly paperTexture: MindMapExportPaperTexture | null;
+	readonly canvasTexture: MindMapExportCanvasTexture | null;
 	readonly primitives: readonly MindMapExportPrimitive[];
 	readonly nodeShapes: readonly MindMapNodeShape[];
 }

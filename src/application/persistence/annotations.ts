@@ -26,6 +26,10 @@ import {
 	validateMindMapNodePresentation,
 	type MindMapPresentationPatch,
 } from "../../presentation/presentation-patch";
+import {
+	DEFAULT_MIND_MAP_PALETTE_ID,
+	isLegacyMindMapPaletteId,
+} from "../../presentation/palettes";
 import { migrateLegacyMindMapThemeId } from "../../presentation/themes";
 
 export const ANNOTATION_STORE_VERSION = 5;
@@ -336,9 +340,20 @@ export function deserializeAnnotationStore(
 		return null;
 	}
 	if (parsed.version === ANNOTATION_STORE_VERSION) {
-		return isAnnotationStore(parsed)
-			? { store: cloneStore(parsed), migrated: false }
-			: null;
+		if (!isAnnotationStore(parsed)) {
+			return null;
+		}
+		const store = cloneStore(parsed);
+		const documents = store.documents.map(
+			migrateLegacyDocumentAnnotationPalette,
+		);
+		const migrated = documents.some(
+			(record, index) => record !== store.documents[index],
+		);
+		return {
+			store: migrated ? { ...store, documents } : store,
+			migrated,
+		};
 	}
 	if (parsed.version === 4 && Array.isArray(parsed.documents)) {
 		const legacy = parsed as unknown as LegacyAnnotationStoreV4;
@@ -1852,7 +1867,7 @@ function migrateLegacyDocumentAnnotationRecordV4(
 		path: value.path,
 		layout: value.layout,
 		styleId: value.styleId,
-		paletteId: value.paletteId,
+		paletteId: migrateLegacyPaletteId(value.paletteId),
 		fontFamilyId: value.fontFamilyId,
 		connectorWidthId: value.connectorWidthId,
 		connectorProfileId: null,
@@ -1877,7 +1892,7 @@ function migrateLegacyDocumentAnnotationRecordV3(
 		path: value.path,
 		layout: value.layout,
 		styleId: value.styleId,
-		paletteId: value.paletteId,
+		paletteId: migrateLegacyPaletteId(value.paletteId),
 		fontFamilyId: null,
 		connectorWidthId: null,
 		connectorProfileId: null,
@@ -1890,6 +1905,20 @@ function migrateLegacyDocumentAnnotationRecordV3(
 	return isDocumentAnnotationRecord(candidate)
 		? cloneDocumentAnnotationRecord(candidate)
 		: null;
+}
+
+function migrateLegacyPaletteId(value: unknown): unknown {
+	return isLegacyMindMapPaletteId(value)
+		? DEFAULT_MIND_MAP_PALETTE_ID
+		: value;
+}
+
+function migrateLegacyDocumentAnnotationPalette(
+	record: DocumentAnnotationRecord,
+): DocumentAnnotationRecord {
+	return isLegacyMindMapPaletteId(record.paletteId)
+		? { ...record, paletteId: DEFAULT_MIND_MAP_PALETTE_ID }
+		: record;
 }
 
 function migrateLegacyDocumentAnnotationRecordV2(

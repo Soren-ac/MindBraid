@@ -1,4 +1,5 @@
 import {
+  cloneMindMapNodeTreatmentTokens,
   hostColor,
   literalColor,
   type MindMapConnectorStrokeProfile,
@@ -773,6 +774,7 @@ function cloneStyleTokens(tokens: MindMapStyleTokens): MindMapStyleTokens {
   return {
     typography: cloneTypography(tokens.typography),
     node: cloneNodeTokens(tokens.node),
+    nodeTreatment: cloneMindMapNodeTreatmentTokens(tokens.nodeTreatment),
     edge: cloneEdgeTokens(tokens.edge),
     effects: cloneEffectTokens(tokens.effects),
     branches: cloneBranchTokens(tokens.branches),

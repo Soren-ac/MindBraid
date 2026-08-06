@@ -189,10 +189,49 @@ export interface MindMapThemeBranchTokens {
   readonly colorEdgeStroke: boolean;
 }
 
+/**
+ * A color-free source selector for a topic's background. The active Palette
+ * supplies every actual color; a Style merely decides which semantic source
+ * is appropriate at a given place in the hierarchy.
+ *
+ * `automatic` preserves the original behavior for existing styles: it first
+ * honors a role color from the Palette, then an enabled branch color, then a
+ * normal semantic surface. Other values allow a Style to express deliberate
+ * visual hierarchy without retaining palette colors or renderer details.
+ */
+export type MindMapNodeFillSource =
+  | "automatic"
+  | "branch"
+  | "surface"
+  | "surface-emphasis"
+  | "canvas";
+
+/**
+ * Semantic node roles are depth-derived by the renderer: root, first-level
+ * topic, and all deeper topics. This keeps the treatment reusable by future
+ * layouts without putting depth or DOM state into a Style definition.
+ */
+export interface MindMapNodeFillSourceByRole {
+  readonly root: MindMapNodeFillSource;
+  readonly mainTopic: MindMapNodeFillSource;
+  readonly subtopic: MindMapNodeFillSource;
+}
+
+/**
+ * Extensible, renderer-neutral node treatment owned by a Style. The optional
+ * nested field is intentional: persisted custom Styles from before this
+ * contract resolve through the default migration below instead of failing to
+ * load.
+ */
+export interface MindMapNodeTreatmentTokens {
+  readonly fillSourceByRole?: Partial<MindMapNodeFillSourceByRole>;
+}
+
 export interface MindMapThemeTokens {
   readonly colors: MindMapThemeColorTokens;
   readonly typography: MindMapThemeTypographyTokens;
   readonly node: MindMapThemeNodeTokens;
+  readonly nodeTreatment: MindMapNodeTreatmentTokens;
   readonly edge: MindMapThemeEdgeTokens;
   readonly effects: MindMapThemeEffectTokens;
   readonly branches: MindMapThemeBranchTokens;
@@ -218,6 +257,8 @@ export interface MindMapStyleRoleTokens {
 export interface MindMapStyleTokens {
   readonly typography: MindMapThemeTypographyTokens;
   readonly node: MindMapThemeNodeTokens;
+  /** Color-free role/depth treatment; values resolve through Palette tokens. */
+  readonly nodeTreatment: MindMapNodeTreatmentTokens;
   readonly edge: MindMapThemeEdgeTokens;
   readonly effects: MindMapThemeEffectTokens;
   /**
@@ -369,6 +410,67 @@ export function resolveMindMapThemeRoles(
 }
 
 export type MindMapNodeRole = "root" | "main-topic" | "subtopic";
+
+const DEFAULT_MIND_MAP_NODE_FILL_SOURCE_BY_ROLE: MindMapNodeFillSourceByRole =
+  Object.freeze({
+    root: "automatic",
+    mainTopic: "automatic",
+    subtopic: "automatic",
+  });
+
+/**
+ * Resolves a safe complete fill-source map from a possibly legacy or partial
+ * treatment. This is the compatibility boundary for custom Style JSON that
+ * predates node treatments.
+ */
+export function resolveMindMapNodeFillSourcesByRole(
+  treatment: MindMapNodeTreatmentTokens | null | undefined,
+): MindMapNodeFillSourceByRole {
+  const sources = treatment?.fillSourceByRole;
+  return {
+    root: normalizeMindMapNodeFillSource(sources?.root),
+    mainTopic: normalizeMindMapNodeFillSource(sources?.mainTopic),
+    subtopic: normalizeMindMapNodeFillSource(sources?.subtopic),
+  };
+}
+
+/** Creates an ownership-safe, complete node-treatment snapshot. */
+export function cloneMindMapNodeTreatmentTokens(
+  treatment: MindMapNodeTreatmentTokens | null | undefined,
+): MindMapNodeTreatmentTokens {
+  return {
+    fillSourceByRole: resolveMindMapNodeFillSourcesByRole(treatment),
+  };
+}
+
+/** Resolves one semantic role's Style-owned background source. */
+export function resolveMindMapNodeFillSource(
+  treatment: MindMapNodeTreatmentTokens | null | undefined,
+  role: MindMapNodeRole,
+): MindMapNodeFillSource {
+  const sources = resolveMindMapNodeFillSourcesByRole(treatment);
+  switch (role) {
+    case "root":
+      return sources.root;
+    case "main-topic":
+      return sources.mainTopic;
+    case "subtopic":
+      return sources.subtopic;
+  }
+}
+
+function normalizeMindMapNodeFillSource(
+  value: unknown,
+): MindMapNodeFillSource {
+  return value === "automatic" ||
+    value === "branch" ||
+    value === "surface" ||
+    value === "surface-emphasis" ||
+    value === "canvas"
+    ? value
+    : DEFAULT_MIND_MAP_NODE_FILL_SOURCE_BY_ROLE.root;
+}
+
 export type MindMapNodeShape =
   | "rounded-rectangle"
   | "rectangle"
@@ -767,6 +869,7 @@ export interface MindMapThemeTokenOverrides {
   readonly colors?: Partial<MindMapThemeColorTokens>;
   readonly typography?: Partial<MindMapThemeTypographyTokens>;
   readonly node?: Partial<MindMapThemeNodeTokens>;
+  readonly nodeTreatment?: MindMapNodeTreatmentTokens;
   readonly edge?: Partial<MindMapThemeEdgeTokens>;
   readonly effects?: Partial<MindMapThemeEffectTokens>;
   readonly branches?: Partial<MindMapThemeBranchTokens>;
@@ -776,6 +879,7 @@ export interface MindMapThemeTokenOverrides {
 export interface MindMapStyleTokenOverrides {
   readonly typography?: Partial<MindMapThemeTypographyTokens>;
   readonly node?: Partial<MindMapThemeNodeTokens>;
+  readonly nodeTreatment?: MindMapNodeTreatmentTokens;
   readonly edge?: Partial<MindMapThemeEdgeTokens>;
   readonly effects?: Partial<MindMapThemeEffectTokens>;
   readonly branches?: Partial<MindMapThemeBranchTokens>;
@@ -1069,6 +1173,9 @@ export function createDefaultMindMapThemeSpec(
         ...DEFAULT_THEME_NODE,
         ...options.tokens?.node,
       },
+      nodeTreatment: cloneMindMapNodeTreatmentTokens(
+        options.tokens?.nodeTreatment,
+      ),
       edge: {
         ...DEFAULT_THEME_EDGE,
         ...options.tokens?.edge,
@@ -1119,6 +1226,9 @@ export function createDefaultMindMapStyleSpec(
         ...DEFAULT_THEME_NODE,
         ...options.tokens?.node,
       },
+      nodeTreatment: cloneMindMapNodeTreatmentTokens(
+        options.tokens?.nodeTreatment,
+      ),
       edge: {
         ...DEFAULT_THEME_EDGE,
         ...options.tokens?.edge,
@@ -1230,6 +1340,9 @@ export function composeMindMapTheme(
       },
       typography: { ...style.tokens.typography },
       node: { ...style.tokens.node },
+      nodeTreatment: cloneMindMapNodeTreatmentTokens(
+        style.tokens.nodeTreatment,
+      ),
       edge: {
         ...style.tokens.edge,
         connectorProfile: cloneMindMapConnectorStrokeProfile(

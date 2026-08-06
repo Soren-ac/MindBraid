@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   createHandDrawnBorderParameters,
   createHandDrawnFilterParameters,
+  createHandDrawnNodeContour,
   createHandDrawnPaperParameters,
   createHandDrawnSeed,
   createHandDrawnStrokes,
+  type HandDrawnNodeContourShape,
   sampleCubicBezier,
   type HandDrawnPoint,
 } from "../src/presentation/hand-drawn";
@@ -88,6 +90,201 @@ describe("createHandDrawnStrokes", () => {
         "invalid",
       ),
     ).toThrow("must be finite");
+  });
+});
+
+describe("createHandDrawnNodeContour", () => {
+  it("is stable for one node key and varies for another key", () => {
+    const options = {
+      shape: "rounded-rectangle" as const,
+      width: 156,
+      height: 72,
+      radius: 14,
+      inset: 3,
+      stableKey: "node:topic",
+      roughness: 1.5,
+      sampleSpacing: 8,
+      maximumPointCount: 48,
+    };
+
+    const first = createHandDrawnNodeContour(options);
+    const repeated = createHandDrawnNodeContour(options);
+    const different = createHandDrawnNodeContour({
+      ...options,
+      stableKey: "node:other-topic",
+    });
+
+    expect(repeated).toEqual(first);
+    expect(different).not.toEqual(first);
+  });
+
+  it("creates finite, exact-seam contours for every closed node shape", () => {
+    const shapes: readonly HandDrawnNodeContourShape[] = [
+      "rectangle",
+      "rounded-rectangle",
+      "pill",
+      "ellipse",
+    ];
+
+    for (const shape of shapes) {
+      const contour = createHandDrawnNodeContour({
+        shape,
+        width: 180,
+        height: 86,
+        radius: 18,
+        inset: 5,
+        stableKey: `node:${shape}`,
+        roughness: 1.8,
+        sampleSpacing: 4,
+        maximumPointCount: 31,
+      });
+
+      expect(contour.length).toBeGreaterThanOrEqual(2);
+      expect(contour.length).toBeLessThanOrEqual(31);
+      expect(contour[0]).toEqual(contour.at(-1));
+      for (const point of contour) {
+        expect(Number.isFinite(point.x)).toBe(true);
+        expect(Number.isFinite(point.y)).toBe(true);
+      }
+    }
+  });
+
+  it("keeps a zero-roughness rectangle regular and honors its inset", () => {
+    const contour = createHandDrawnNodeContour({
+      shape: "rectangle",
+      width: 12,
+      height: 8,
+      radius: 99,
+      inset: 2,
+      stableKey: "node:clean-rectangle",
+      roughness: 0,
+      sampleSpacing: 64,
+      maximumPointCount: 9,
+    });
+
+    expect(contour).toEqual([
+      { x: 2, y: 2 },
+      { x: 10, y: 2 },
+      { x: 10, y: 6 },
+      { x: 2, y: 6 },
+      { x: 2, y: 2 },
+    ]);
+    expect(
+      createHandDrawnNodeContour({
+        shape: "rectangle",
+        width: 12,
+        height: 8,
+        radius: 0,
+        inset: 2,
+        stableKey: "node:another-clean-rectangle",
+        roughness: 0,
+        sampleSpacing: 64,
+        maximumPointCount: 9,
+      }),
+    ).toEqual(contour);
+  });
+
+  it("resolves rounded, pill, and ellipse geometry without roughness", () => {
+    const rounded = createHandDrawnNodeContour({
+      shape: "rounded-rectangle",
+      width: 100,
+      height: 60,
+      radius: 15,
+      inset: 5,
+      stableKey: "node:rounded",
+      roughness: 0,
+      sampleSpacing: 64,
+      maximumPointCount: 9,
+    });
+    const pill = createHandDrawnNodeContour({
+      shape: "pill",
+      width: 100,
+      height: 40,
+      radius: 1,
+      stableKey: "node:pill",
+      roughness: 0,
+      sampleSpacing: 64,
+      maximumPointCount: 9,
+    });
+    const ellipse = createHandDrawnNodeContour({
+      shape: "ellipse",
+      width: 100,
+      height: 50,
+      radius: 0,
+      stableKey: "node:ellipse",
+      roughness: 0,
+      sampleSpacing: 64,
+      maximumPointCount: 9,
+    });
+
+    expect(rounded).toContainEqual({ x: 20, y: 5 });
+    expect(rounded).toContainEqual({ x: 95, y: 20 });
+    expect(pill).toContainEqual({ x: 20, y: 0 });
+    expect(pill).toContainEqual({ x: 100, y: 20 });
+    expect(ellipse).toContainEqual({ x: 50, y: 0 });
+    expect(ellipse).toContainEqual({ x: 100, y: 25 });
+    expect(ellipse).toContainEqual({ x: 50, y: 50 });
+    expect(ellipse).toContainEqual({ x: 0, y: 25 });
+  });
+
+  it("enforces point caps and recovers from unsafe optional settings", () => {
+    const capped = createHandDrawnNodeContour({
+      shape: "ellipse",
+      width: 2_000,
+      height: 1_000,
+      radius: 0,
+      stableKey: "node:capped",
+      roughness: 2,
+      sampleSpacing: 4,
+      maximumPointCount: 13,
+    });
+    const recovered = createHandDrawnNodeContour({
+      shape: "pill",
+      width: 160,
+      height: 80,
+      radius: Number.NaN,
+      inset: Number.NEGATIVE_INFINITY,
+      stableKey: "node:recovered",
+      roughness: Number.POSITIVE_INFINITY,
+      sampleSpacing: Number.NaN,
+      maximumPointCount: Number.POSITIVE_INFINITY,
+    });
+
+    expect(capped).toHaveLength(13);
+    expect(recovered.length).toBeLessThanOrEqual(96);
+    expect(recovered[0]).toEqual(recovered.at(-1));
+    expect(
+      recovered.every(
+        (point) => Number.isFinite(point.x) && Number.isFinite(point.y),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects invalid node-box geometry and unsupported shapes", () => {
+    expect(() =>
+      createHandDrawnNodeContour({
+        shape: "rectangle",
+        width: -1,
+        height: 20,
+        stableKey: "node:invalid-width",
+      }),
+    ).toThrow("width must be finite and non-negative");
+    expect(() =>
+      createHandDrawnNodeContour({
+        shape: "ellipse",
+        width: 20,
+        height: Number.NaN,
+        stableKey: "node:invalid-height",
+      }),
+    ).toThrow("height must be finite and non-negative");
+    expect(() =>
+      createHandDrawnNodeContour({
+        shape: "none" as HandDrawnNodeContourShape,
+        width: 20,
+        height: 20,
+        stableKey: "node:invalid-shape",
+      }),
+    ).toThrow("Unknown hand-drawn node contour shape");
   });
 });
 
