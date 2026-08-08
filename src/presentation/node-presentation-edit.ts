@@ -44,13 +44,53 @@ export function createMindMapNodeFormattingPatch(
 	const patch = new Map<string, MindMapNodePresentation | null>();
 	for (const nodeId of uniqueIds) {
 		if (command.type === "reset") {
-			patch.set(nodeId, null);
+			const currentPresentation = cloneNodePresentation(
+				current.get(nodeId) ?? {},
+			);
+			clearFormattingFields(currentPresentation);
+			patch.set(
+				nodeId,
+				Object.keys(currentPresentation).length === 0
+					? null
+					: currentPresentation,
+			);
 			continue;
 		}
 		const next = applyCommand(current.get(nodeId) ?? {}, command);
 		patch.set(nodeId, Object.keys(next).length === 0 ? null : next);
 	}
 	return patch;
+}
+
+/**
+ * Reset only the sparse formatting fields owned by this editor. Node assets
+ * and any future presentation fields remain intact for their own controls.
+ */
+function clearFormattingFields(
+	presentation: { -readonly [K in keyof MindMapNodePresentation]: MindMapNodePresentation[K] },
+): void {
+	delete presentation.shape;
+	delete presentation.fill;
+	delete presentation.stroke;
+	delete presentation.textColor;
+	delete presentation.borderWidth;
+	delete presentation.radius;
+	delete presentation.typography;
+}
+
+function cloneNodePresentation(
+	presentation: MindMapNodePresentation,
+): { -readonly [K in keyof MindMapNodePresentation]: MindMapNodePresentation[K] } {
+	const result = { ...presentation } as {
+		-readonly [K in keyof MindMapNodePresentation]: MindMapNodePresentation[K];
+	};
+	if (presentation.typography !== undefined) {
+		result.typography = { ...presentation.typography };
+	}
+	if (presentation.markerIds !== undefined) {
+		result.markerIds = [...presentation.markerIds];
+	}
+	return result;
 }
 
 function applyCommand(

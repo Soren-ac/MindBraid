@@ -1,0 +1,109 @@
+name: Create draft release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: Build and attest release assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Require an exact release tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            echo "Run this workflow from an existing x.y.z Git tag."
+            exit 1
+          fi
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify tag and release metadata
+        run: npm run verify:release-version -- --tag "$GITHUB_REF_NAME"
+
+      - name: Run repository checks
+        run: npm run check
+
+      - name: Install Chromium for visual regression
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser visual regression
+        run: npm run test:visual
+
+      - name: Ensure generated artifacts are committed
+        run: |
+          git diff --check
+          git diff --exit-code -- main.js manifest.json styles.css package-lock.json
+
+      - name: Stage release assets
+        run: |
+          mkdir -p release-assets
+          cp main.js manifest.json styles.css release-assets/
+          npm run verify:release-artifacts -- --directory release-assets
+
+      - name: Attest main bundle
+        uses: actions/attest@v4
+        with:
+          subject-path: release-assets/main.js
+
+      - name: Attest plugin manifest
+        uses: actions/attest@v4
+        with:
+          subject-path: release-assets/manifest.json
+
+      - name: Attest plugin styles
+        uses: actions/attest@v4
+        with:
+          subject-path: release-assets/styles.css
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          state=""
+          if state="$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            case "$state" in
+              true)
+                gh release upload "$tag" release-assets/main.js release-assets/manifest.json release-assets/styles.css --clobber
+                ;;
+              false)
+                echo "Refusing to replace assets on published release $tag."
+                exit 1
+                ;;
+              *)
+                echo "Could not determine the release state for $tag."
+                exit 1
+                ;;
+            esac
+          else
+            gh release create "$tag" \
+              release-assets/main.js \
+              release-assets/manifest.json \
+              release-assets/styles.css \
+              --draft \
+              --verify-tag \
+              --title "MindBraid $tag" \
+              --generate-notes
+          fi

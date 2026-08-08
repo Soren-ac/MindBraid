@@ -25,7 +25,10 @@ export default defineConfig(
             "eslint.config.mjs",
             "esbuild.config.mjs",
             "manifest.json",
-            "scripts/verify-vendor-types.mjs"
+            "scripts/verify-vendor-types.mjs",
+            "scripts/release-contract.mjs",
+            "scripts/verify-release-artifacts.mjs",
+            "scripts/verify-release-version.mjs"
           ]
         },
         tsconfigRootDir: import.meta.dirname,

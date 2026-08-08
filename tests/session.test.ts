@@ -6,6 +6,7 @@ import {
 	createDefaultMindMapPresentation,
 } from "../src/presentation/presentation";
 import { MindMapViewSession } from "../src/application/session";
+import type { MindMapLargeMapProtection } from "../src/layout/large-map-policy";
 
 function parse(content: string) {
 	return parseMarkdown(content, "Notes/Test.md", "Test");
@@ -69,6 +70,106 @@ describe("MindMapViewSession", () => {
 			focusRootNodeId: null,
 			visibleDepthLimit: null,
 			minimapVisible: false,
+		});
+	});
+
+	it("keeps a large-map full-render acknowledgement local to one tab and source", () => {
+		const session = new MindMapViewSession();
+		const initial = createLargeMapProtection({
+			nodeCount: 10_001,
+			initialVisibleDepthLimit: 3,
+			initialVisibleNodeCount: 40,
+			hiddenNodeCount: 9_961,
+		});
+
+		expect(
+			session.applyLargeMapProtection("Notes/Large.md", initial),
+		).toBe(true);
+		expect(session.getInteractionState().visibleDepthLimit).toBe(3);
+		expect(session.getLargeMapGuardState("Notes/Large.md")).toEqual({
+			protection: initial,
+			fullMapConfirmed: false,
+		});
+
+		expect(session.confirmLargeMapFullRender("Notes/Large.md")).toBe(true);
+		expect(session.getInteractionState().visibleDepthLimit).toBeNull();
+		expect(
+			session.getLargeMapGuardState("Notes/Large.md")?.fullMapConfirmed,
+		).toBe(true);
+
+		const refreshed = createLargeMapProtection({
+			nodeCount: 12_001,
+			initialVisibleDepthLimit: 2,
+			initialVisibleNodeCount: 13,
+			hiddenNodeCount: 11_988,
+		});
+		expect(
+			session.applyLargeMapProtection("Notes/Large.md", refreshed),
+		).toBe(false);
+		expect(session.getInteractionState().visibleDepthLimit).toBeNull();
+		expect(session.getLargeMapGuardState("Notes/Large.md")).toEqual({
+			protection: refreshed,
+			fullMapConfirmed: true,
+		});
+
+		session.resetForSource();
+		expect(session.getLargeMapGuardState("Notes/Large.md")).toBeNull();
+		expect(
+			session.applyLargeMapProtection("Notes/Other-large.md", initial),
+		).toBe(true);
+		expect(session.getInteractionState().visibleDepthLimit).toBe(3);
+	});
+
+	it("replaces only its own automatic depth as protection becomes stricter", () => {
+		const session = new MindMapViewSession();
+		const warning = createLargeMapProtection({
+			level: "warning",
+			nodeCount: 5_001,
+			initialVisibleDepthLimit: 4,
+			initialVisibleNodeCount: 121,
+			hiddenNodeCount: 4_880,
+		});
+		const guarded = createLargeMapProtection({
+			nodeCount: 10_001,
+			initialVisibleDepthLimit: 3,
+			initialVisibleNodeCount: 40,
+			hiddenNodeCount: 9_961,
+		});
+
+		session.applyLargeMapProtection("Notes/Growing.md", warning);
+		expect(session.getInteractionState().visibleDepthLimit).toBe(4);
+		expect(
+			session.applyLargeMapProtection("Notes/Growing.md", guarded),
+		).toBe(true);
+		expect(session.getInteractionState().visibleDepthLimit).toBe(3);
+
+		// A user-selected depth is not silently overwritten by another refresh.
+		session.setVisibleDepthLimit(1);
+		expect(
+			session.applyLargeMapProtection("Notes/Growing.md", warning),
+		).toBe(false);
+		expect(session.getInteractionState().visibleDepthLimit).toBe(1);
+	});
+
+	it("drills into a hidden search result instead of implicitly rendering a guarded map", () => {
+		const document = parse("# A\n## B\n### Target\n#### Child");
+		const target = requireNode(document, "Target");
+		const session = new MindMapViewSession();
+		session.applyLargeMapProtection(
+			"Notes/Test.md",
+			createLargeMapProtection({
+				nodeCount: 10_001,
+				initialVisibleDepthLimit: 1,
+				initialVisibleNodeCount: 2,
+				hiddenNodeCount: 9_999,
+			}),
+		);
+
+		expect(session.revealNode(document.root, target.id)).toBe(true);
+		expect(session.getInteractionState()).toMatchObject({
+			focusRootNodeId: target.id,
+			visibleDepthLimit: 1,
+			selectedNodeIds: new Set([target.id]),
 		});
 	});
 
@@ -516,4 +617,19 @@ function findNodes(
 		pending.push(...node.children);
 	}
 	return matches;
+}
+
+function createLargeMapProtection(
+	values: Omit<
+		MindMapLargeMapProtection,
+		"level" | "requiresExplicitFullRender"
+	> & {
+		readonly level?: MindMapLargeMapProtection["level"];
+	},
+): MindMapLargeMapProtection {
+	return {
+		...values,
+		level: values.level ?? "guarded",
+		requiresExplicitFullRender: true,
+	};
 }

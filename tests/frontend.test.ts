@@ -364,6 +364,12 @@ describe("frontend replacement contract", () => {
 				hasUndoEntry: false,
 				hasRedoEntry: false,
 			},
+			presentationHistoryAvailability: {
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+				undoAction: null,
+				redoAction: null,
+			},
 		};
 
 		frontend.update(frame);

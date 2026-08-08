@@ -34,6 +34,11 @@ import {
 import type { MindMapRenderEffectCapability } from "../presentation/render-effects";
 import type { MindMapAssetSpec } from "../presentation/assets";
 import type { MindMapPresentationPatch } from "../presentation/presentation-patch";
+import type { MindMapLargeMapGuardState } from "../layout/large-map-policy";
+import type {
+	MindMapPresentationHistoryAction,
+	MindMapPresentationHistoryAvailability,
+} from "../presentation/presentation-history";
 import type {
 	MindMapPresentationLibraryEntryRevision,
 	MindMapPresentationLibraryPaletteDefinition,
@@ -354,8 +359,19 @@ export interface MindMapFrontendFrame {
 	readonly colorScheme: MindMapColorScheme;
 	readonly presentation: MindMapPresentation;
 	readonly interaction: MindMapInteractionState;
+	/**
+	 * Optional during adapter upgrades. A current host supplies this only for a
+	 * large source tree; a frontend must treat an omitted value as unguarded.
+	 * The acknowledgement is per-tab session state, never persisted visual data.
+	 */
+	readonly largeMapGuard?: MindMapLargeMapGuardState | null;
 	readonly capabilities: MindMapFrontendCapabilities;
 	readonly topicCommandAvailability: MindMapTopicCommandAvailability;
+	/**
+	 * Document-local visual history. This is intentionally separate from topic
+	 * command history, which changes Markdown source.
+	 */
+	readonly presentationHistoryAvailability: MindMapPresentationHistoryAvailability;
 }
 
 /**
@@ -492,14 +508,16 @@ export type MindMapFrontendEvent =
 			readonly type: "apply-presentation-patch";
 			readonly patch: MindMapPresentationPatch;
 			readonly scope: Exclude<MindMapPresentationScope, "default">;
-			readonly label: string;
+			/** Locale-independent history metadata, translated by the active UI. */
+			readonly action: MindMapPresentationHistoryAction;
 	  }
 	| {
 			/** Begins or updates an ephemeral continuous-control preview. */
 			readonly type: "preview-presentation-patch";
 			readonly gestureId: string;
 			readonly patch: MindMapPresentationPatch;
-			readonly label: string;
+			/** Locale-independent history metadata committed with this gesture. */
+			readonly action: MindMapPresentationHistoryAction;
 	  }
 	| {
 			readonly type: "commit-presentation-preview";
@@ -529,8 +547,12 @@ export type MindMapFrontendEvent =
 			readonly nodeId: string | null;
 	  }
 	| {
-			readonly type: "change-visible-depth";
-			readonly depth: number | null;
+		readonly type: "change-visible-depth";
+		readonly depth: number | null;
+	  }
+	| {
+		/** Explicitly opts the current tab into rendering every large-map node. */
+		readonly type: "show-full-large-map";
 	  }
 	| {
 			readonly type: "change-minimap-visibility";

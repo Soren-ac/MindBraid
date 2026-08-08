@@ -106,6 +106,12 @@ function createAuthoringFrame(
 			hasUndoEntry: false,
 			hasRedoEntry: false,
 		},
+		presentationHistoryAvailability: {
+			hasUndoEntry: false,
+			hasRedoEntry: false,
+			undoAction: null,
+			redoAction: null,
+		},
 	};
 }
 
@@ -146,6 +152,24 @@ function withDecorations(
 		...frame,
 		presentation: { ...frame.presentation, decorations },
 		interaction: { ...frame.interaction, selectedDecorationId },
+	};
+}
+
+function withSelectedDecoration(
+	frame: MindMapFrontendFrame,
+	decorations: MindMapFrontendFrame["presentation"]["decorations"],
+	selectedDecorationId: string,
+): MindMapFrontendFrame {
+	return {
+		...withDecorations(frame, decorations, selectedDecorationId),
+		interaction: {
+			...frame.interaction,
+			selectedNodeIds: new Set(),
+			primarySelectedNodeId: null,
+			selectionAnchorNodeId: null,
+			focusedNodeId: null,
+			selectedDecorationId,
+		},
 	};
 }
 
@@ -357,6 +381,35 @@ describe("BasicMindMapFrontend presentation authoring", () => {
 			expect(events.at(-1)?.type).toBe("cancel-presentation-preview");
 		});
 
+		const icon = frame.capabilities.assets.find((asset) => asset.kind === "icon");
+		const marker = frame.capabilities.assets.find(
+			(asset) => asset.kind === "marker",
+		);
+		if (icon === undefined || marker === undefined) {
+			throw new Error("Expected built-in icon and marker assets.");
+		}
+		frontend.update({
+			...frame,
+			interaction: {
+				...frame.interaction,
+				selectedNodeIds: new Set([heading.id, child.id]),
+				primarySelectedNodeId: heading.id,
+				selectionAnchorNodeId: heading.id,
+			},
+			presentation: {
+				...frame.presentation,
+				nodes: new Map(
+					[heading.id, child.id].map((nodeId) => [
+						nodeId,
+						{
+							shape: "ellipse",
+							iconId: icon.id,
+							markerIds: [marker.id],
+						},
+					]),
+				),
+			},
+		});
 		events.length = 0;
 		reset.click();
 		await vi.waitFor(() => {
@@ -368,8 +421,14 @@ describe("BasicMindMapFrontend presentation authoring", () => {
 		}
 		expect(resetEvent.patch.nodes).toEqual(
 			new Map([
-				[heading.id, null],
-				[child.id, null],
+				[
+					heading.id,
+					{ iconId: icon.id, markerIds: [marker.id] },
+				],
+				[
+					child.id,
+					{ iconId: icon.id, markerIds: [marker.id] },
+				],
 			]),
 		);
 		frontend.destroy();
@@ -429,6 +488,26 @@ describe("BasicMindMapFrontend presentation authoring", () => {
 				markerIds: [markerId],
 			});
 		}
+		frontend.destroy();
+	});
+
+	it("re-enables decoration text entry after a document becomes ready", () => {
+		const frontend = new BasicMindMapFrontend(
+			() => undefined,
+			rendererFactory,
+			() => undefined,
+		);
+		const frame = createAuthoringFrame();
+		frontend.mount(document.body);
+		frontend.update({ ...frame, document: { status: "idle" } });
+
+		const text = requireElement<HTMLInputElement>(
+			"input[data-obmind-decoration-text]",
+		);
+		expect(text.disabled).toBe(true);
+
+		frontend.update(frame);
+		expect(text.disabled).toBe(false);
 		frontend.destroy();
 	});
 
@@ -658,7 +737,7 @@ describe("BasicMindMapFrontend presentation authoring", () => {
 			() => undefined,
 		);
 		const { frame, nodeIds } = createSelectedAuthoringFrame();
-		const selectedFrame = withDecorations(
+		const selectedFrame = withSelectedDecoration(
 			frame,
 			[
 				{
@@ -677,12 +756,15 @@ describe("BasicMindMapFrontend presentation authoring", () => {
 		const editorText = requireElement<HTMLInputElement>(
 			"input[data-obmind-decoration-editor-text]",
 		);
+		const saveButton = requireElement<HTMLButtonElement>(
+			'button[data-obmind-decoration-save="relationship-1"]',
+		);
 		expect(editorText.value).toBe("Old label");
+		expect(selectedFrame.interaction.selectedNodeIds).toHaveLength(0);
+		expect(saveButton.disabled).toBe(false);
 		editorText.value = "Updated label";
 		editorText.dispatchEvent(new Event("input", { bubbles: true }));
-		requireElement<HTMLButtonElement>(
-			'button[data-obmind-decoration-save="relationship-1"]',
-		).click();
+		saveButton.click();
 		await vi.waitFor(() => {
 			expect(presentationPatches(events)).toHaveLength(1);
 		});
@@ -701,7 +783,11 @@ describe("BasicMindMapFrontend presentation authoring", () => {
 			throw new Error("Expected an updated decoration list.");
 		}
 		frontend.update(
-			withDecorations(selectedFrame, updated.patch.decorations, "relationship-1"),
+			withSelectedDecoration(
+				selectedFrame,
+				updated.patch.decorations,
+				"relationship-1",
+			),
 		);
 		events.length = 0;
 		requireElement<HTMLButtonElement>(
@@ -715,6 +801,86 @@ describe("BasicMindMapFrontend presentation authoring", () => {
 			type: "select-decoration",
 			decorationId: null,
 		});
+		frontend.destroy();
+	});
+
+	it("edits selected boundary and summary text without retargeting nodes", async () => {
+		const cases = [
+			{
+				id: "boundary-1",
+				oldText: "Old boundary",
+				newText: "Updated boundary",
+				decoration: {
+					id: "boundary-1",
+					kind: "boundary" as const,
+					nodeIds: [] as readonly string[],
+					label: "Old boundary",
+				},
+			},
+			{
+				id: "summary-1",
+				oldText: "Old summary",
+				newText: "Updated summary",
+				decoration: {
+					id: "summary-1",
+					kind: "summary" as const,
+					nodeIds: [] as readonly string[],
+					text: "Old summary",
+				},
+			},
+		] as const;
+		const { frame, nodeIds } = createSelectedAuthoringFrame();
+		const events: MindMapFrontendEvent[] = [];
+		const frontend = new BasicMindMapFrontend(
+			(event) => {
+				events.push(event);
+			},
+			rendererFactory,
+			() => undefined,
+		);
+		frontend.mount(document.body);
+
+		for (const testCase of cases) {
+			const decoration = { ...testCase.decoration, nodeIds };
+			const selectedFrame = withSelectedDecoration(
+				frame,
+				[decoration],
+				testCase.id,
+			);
+			frontend.update(selectedFrame);
+			const editorText = requireElement<HTMLInputElement>(
+				"input[data-obmind-decoration-editor-text]",
+			);
+			const saveButton = requireElement<HTMLButtonElement>(
+				`button[data-obmind-decoration-save="${testCase.id}"]`,
+			);
+			expect(selectedFrame.interaction.selectedNodeIds).toHaveLength(0);
+			expect(editorText.value).toBe(testCase.oldText);
+			expect(saveButton.disabled).toBe(false);
+
+			editorText.value = testCase.newText;
+			editorText.dispatchEvent(new Event("input", { bubbles: true }));
+			events.length = 0;
+			saveButton.click();
+			await vi.waitFor(() => {
+				expect(presentationPatches(events)).toHaveLength(1);
+			});
+			const updated = presentationPatches(events)[0];
+			if (updated?.patch.decorations === undefined) {
+				throw new Error("Expected an updated decoration list.");
+			}
+			expect(updated.patch.decorations).toHaveLength(1);
+			const result = updated.patch.decorations[0];
+			if (result?.kind === "boundary") {
+				expect(result.nodeIds).toEqual(nodeIds);
+				expect(result.label).toBe(testCase.newText);
+			} else if (result?.kind === "summary") {
+				expect(result.nodeIds).toEqual(nodeIds);
+				expect(result.text).toBe(testCase.newText);
+			} else {
+				throw new Error("Expected a boundary or summary decoration.");
+			}
+		}
 		frontend.destroy();
 	});
 

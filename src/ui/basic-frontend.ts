@@ -120,6 +120,10 @@ import {
 	type HandDrawnNodeContourShape,
 } from "../presentation/hand-drawn";
 import type { MindMapPresentationPatch } from "../presentation/presentation-patch";
+import {
+	createMindMapPresentationHistoryAction,
+	type MindMapPresentationHistoryAction,
+} from "../presentation/presentation-history";
 import { createMindMapNodeAssetPatch } from "../presentation/node-assets-edit";
 import type { MindMapAssetColorRole } from "../presentation/assets";
 import {
@@ -232,6 +236,8 @@ interface BasicFrontendElements {
 	readonly appearanceSelect: HTMLSelectElement;
 	readonly languageSelect: HTMLSelectElement;
 	readonly sidebarToggle: HTMLButtonElement;
+	readonly presentationUndoButton: HTMLButtonElement;
+	readonly presentationRedoButton: HTMLButtonElement;
 	readonly sidebarCloseButton: HTMLButtonElement;
 	readonly sidebarScroll: HTMLElement;
 	readonly sidebarTabList: HTMLElement;
@@ -240,6 +246,9 @@ interface BasicFrontendElements {
 	readonly exportButton: HTMLButtonElement;
 	readonly sidebar: HTMLElement;
 	readonly status: HTMLElement;
+	readonly largeMapNotice: HTMLElement;
+	readonly largeMapMessage: HTMLElement;
+	readonly largeMapShowAllButton: HTMLButtonElement;
 	readonly rendererContainer: HTMLElement;
 }
 
@@ -559,7 +568,36 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		);
 		status.setAttribute("role", "status");
 		status.setAttribute("aria-live", "polite");
-		body.append(rendererContainer, status);
+		const largeMapNotice = createElement(
+			ownerDocument,
+			"aside",
+			"obmind-large-map-notice",
+		);
+		largeMapNotice.hidden = true;
+		largeMapNotice.setAttribute("aria-live", "polite");
+		const largeMapMessage = createElement(
+			ownerDocument,
+			"span",
+			"obmind-large-map-notice-message",
+		);
+		const largeMapShowAllButton = createElement(
+			ownerDocument,
+			"button",
+			"obmind-large-map-notice-action",
+		);
+		largeMapShowAllButton.type = "button";
+		setLocalizedButtonLabel(
+			largeMapShowAllButton,
+			"frontend.largeMap.showAll.aria",
+			this.translator,
+		);
+		setLocalizedText(
+			largeMapShowAllButton,
+			"frontend.largeMap.showAll",
+			this.translator,
+		);
+		largeMapNotice.append(largeMapMessage, largeMapShowAllButton);
+		body.append(rendererContainer, status, largeMapNotice);
 
 		// ── Sidebar ─────────────────────────────────────────────────────────
 		const sidebar = createElement(ownerDocument, "div", "obmind-sidebar");
@@ -608,8 +646,41 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		);
 		sidebarHeading.append(sidebarTitle, sidebarDescription);
 		sidebar.setAttribute("aria-labelledby", sidebarTitle.id);
+		const sidebarHeaderActions = createElement(
+			ownerDocument,
+			"div",
+			"obmind-sidebar-header-actions",
+		);
+		const presentationUndoButton = createToolbarButton(
+			sidebarHeaderActions,
+			"undo-2",
+			this.t("frontend.presentationHistory.undo"),
+			this.renderIcon,
+		);
+		presentationUndoButton.classList.add(
+			"obmind-sidebar-history-button",
+		);
+		setLocalizedButtonLabel(
+			presentationUndoButton,
+			"frontend.presentationHistory.undo",
+			this.translator,
+		);
+		const presentationRedoButton = createToolbarButton(
+			sidebarHeaderActions,
+			"redo-2",
+			this.t("frontend.presentationHistory.redo"),
+			this.renderIcon,
+		);
+		presentationRedoButton.classList.add(
+			"obmind-sidebar-history-button",
+		);
+		setLocalizedButtonLabel(
+			presentationRedoButton,
+			"frontend.presentationHistory.redo",
+			this.translator,
+		);
 		const sidebarCloseButton = createToolbarButton(
-			sidebarHeader,
+			sidebarHeaderActions,
 			"x",
 			this.t("frontend.sidebar.close"),
 			this.renderIcon,
@@ -620,7 +691,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			"frontend.sidebar.close",
 			this.translator,
 		);
-		sidebarHeader.prepend(sidebarHeading);
+		sidebarHeader.append(sidebarHeading, sidebarHeaderActions);
 
 		const sidebarTabList = createElement(
 			ownerDocument,
@@ -1223,6 +1294,8 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			appearanceSelect,
 			languageSelect,
 			sidebarToggle,
+			presentationUndoButton,
+			presentationRedoButton,
 			sidebarCloseButton,
 			sidebarScroll,
 			sidebarTabList,
@@ -1231,6 +1304,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			sidebar,
 			exportButton,
 			status,
+			largeMapNotice,
+			largeMapMessage,
+			largeMapShowAllButton,
 			rendererContainer,
 		};
 
@@ -1250,6 +1326,18 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		collapseButton.addEventListener("click", this.handleCollapse);
 		undoButton.addEventListener("click", this.handleUndo);
 		redoButton.addEventListener("click", this.handleRedo);
+		largeMapShowAllButton.addEventListener(
+			"click",
+			this.handleLargeMapShowAll,
+		);
+		presentationUndoButton.addEventListener(
+			"click",
+			this.handlePresentationUndo,
+		);
+		presentationRedoButton.addEventListener(
+			"click",
+			this.handlePresentationRedo,
+		);
 		search.input.addEventListener("input", this.handleSearchInput);
 		search.input.addEventListener("focus", this.handleSearchFocus);
 		search.input.addEventListener("keydown", this.handleSearchKeyDown);
@@ -1411,6 +1499,8 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		this.updateNodeAssetControls(frame);
 		this.updateDecorationControls(frame);
 		this.updateNavigationControls(frame);
+		this.updateLargeMapGuard(frame);
+		this.updatePresentationHistoryControls(frame);
 		const state = frame.document;
 		this.updateSearchIndex(frame);
 
@@ -1588,6 +1678,18 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			);
 			elements.undoButton.removeEventListener("click", this.handleUndo);
 			elements.redoButton.removeEventListener("click", this.handleRedo);
+			elements.largeMapShowAllButton.removeEventListener(
+				"click",
+				this.handleLargeMapShowAll,
+			);
+			elements.presentationUndoButton.removeEventListener(
+				"click",
+				this.handlePresentationUndo,
+			);
+			elements.presentationRedoButton.removeEventListener(
+				"click",
+				this.handlePresentationRedo,
+			);
 			elements.searchInput.removeEventListener(
 				"input",
 				this.handleSearchInput,
@@ -2114,7 +2216,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 					...(next === state ? {} : { decorations: next.decorations }),
 				},
 				scope: "document",
-				label: this.t("frontend.nodeAssets.history"),
+				action: createMindMapPresentationHistoryAction(
+					"frontend.nodeAssets.history",
+				),
 			});
 			if (
 				next !== state &&
@@ -2224,7 +2328,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 				this.commitDecorationState(
 					frame,
 					next,
-					this.t("frontend.nodeAssets.labelHistory"),
+					createMindMapPresentationHistoryAction(
+						"frontend.nodeAssets.labelHistory",
+					),
 				);
 				return;
 			}
@@ -2234,7 +2340,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 				type: "apply-presentation-patch",
 				patch: { nodes: nodePatch },
 				scope: "document",
-				label: this.t("frontend.nodeAssets.history"),
+				action: createMindMapPresentationHistoryAction(
+					"frontend.nodeAssets.history",
+				),
 			});
 		}
 	};
@@ -2283,6 +2391,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		];
 		const visible = ready && kinds.length > 0;
 		elements.decorationsSection.hidden = !visible;
+		elements.decorationTextInput.disabled = !visible;
 		if (!visible) {
 			elements.decorationList.replaceChildren();
 			elements.decorationEditor.replaceChildren();
@@ -2324,8 +2433,10 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			elements.decorationKindSelect.value,
 		);
 		if (kind === null) {
+			elements.decorationTextInput.disabled = true;
 			return;
 		}
+		elements.decorationTextInput.disabled = false;
 		elements.decorationAssetRow.hidden = kind !== "marker";
 		const placeholderKey =
 			kind === "summary"
@@ -2589,7 +2700,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			this.applyDecorationCommand(
 				frame,
 				{ type: "delete", id: deleteId },
-				this.t("frontend.decorations.deleteHistory"),
+				createMindMapPresentationHistoryAction(
+					"frontend.decorations.deleteHistory",
+				),
 			);
 			return;
 		}
@@ -2634,7 +2747,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 								context,
 							),
 						},
-						this.t("frontend.decorations.createHistory"),
+						createMindMapPresentationHistoryAction(
+							"frontend.decorations.createHistory",
+						),
 					);
 					return;
 				case "boundary":
@@ -2648,7 +2763,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 								context,
 							),
 						},
-						this.t("frontend.decorations.createHistory"),
+						createMindMapPresentationHistoryAction(
+							"frontend.decorations.createHistory",
+						),
 					);
 					return;
 				case "summary":
@@ -2663,7 +2780,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 								context,
 							),
 						},
-						this.t("frontend.decorations.createHistory"),
+						createMindMapPresentationHistoryAction(
+							"frontend.decorations.createHistory",
+						),
 					);
 					return;
 				case "marker": {
@@ -2711,7 +2830,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 					this.commitDecorationState(
 						frame,
 						next,
-						this.t("frontend.decorations.createHistory"),
+						createMindMapPresentationHistoryAction(
+							"frontend.decorations.createHistory",
+						),
 					);
 					return;
 				}
@@ -2739,12 +2860,11 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		if (!this.canUpdateDecoration(frame, current, text)) {
 			this.showDecorationValidationMessage(
 				current.kind,
-				[...frame.interaction.selectedNodeIds],
+				this.getDecorationTargetNodeIds(current),
 				text,
 			);
 			return;
 		}
-		const selectedNodeIds = [...frame.interaction.selectedNodeIds];
 		const optionalLabel = text.length === 0 ? undefined : text;
 		switch (current.kind) {
 			case "relationship":
@@ -2755,12 +2875,17 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 						id,
 						decoration: {
 							kind: "relationship",
-							fromNodeId: selectedNodeIds[0] ?? current.fromNodeId,
-							toNodeId: selectedNodeIds[1] ?? current.toNodeId,
+							fromNodeId: current.fromNodeId,
+							toNodeId: current.toNodeId,
+							...(current.variant === undefined
+								? {}
+								: { variant: current.variant }),
 							...(optionalLabel === undefined ? {} : { label: optionalLabel }),
 						},
 					},
-					this.t("frontend.decorations.updateHistory"),
+					createMindMapPresentationHistoryAction(
+						"frontend.decorations.updateHistory",
+					),
 				);
 				return;
 			case "boundary":
@@ -2771,11 +2896,16 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 						id,
 						decoration: {
 							kind: "boundary",
-							nodeIds: selectedNodeIds,
+							nodeIds: [...current.nodeIds],
+							...(current.variant === undefined
+								? {}
+								: { variant: current.variant }),
 							...(optionalLabel === undefined ? {} : { label: optionalLabel }),
 						},
 					},
-					this.t("frontend.decorations.updateHistory"),
+					createMindMapPresentationHistoryAction(
+						"frontend.decorations.updateHistory",
+					),
 				);
 				return;
 			case "summary":
@@ -2786,11 +2916,16 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 						id,
 						decoration: {
 							kind: "summary",
-							nodeIds: selectedNodeIds,
+							nodeIds: [...current.nodeIds],
+							...(current.variant === undefined
+								? {}
+								: { variant: current.variant }),
 							text,
 						},
 					},
-					this.t("frontend.decorations.updateHistory"),
+					createMindMapPresentationHistoryAction(
+						"frontend.decorations.updateHistory",
+					),
 				);
 				return;
 			case "marker":
@@ -2831,7 +2966,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 					this.commitDecorationState(
 						frame,
 						next,
-						this.t("frontend.decorations.updateHistory"),
+						createMindMapPresentationHistoryAction(
+							"frontend.decorations.updateHistory",
+						),
 					);
 					return;
 				}
@@ -2847,7 +2984,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 							...(optionalLabel === undefined ? {} : { label: optionalLabel }),
 						},
 					},
-					this.t("frontend.decorations.updateHistory"),
+					createMindMapPresentationHistoryAction(
+						"frontend.decorations.updateHistory",
+					),
 				);
 				return;
 		}
@@ -2876,7 +3015,39 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		if (decoration.kind === "marker") {
 			return !this.isTagMarker(frame, decoration) || text.length > 0;
 		}
-		return this.canCreateDecoration(frame, decoration.kind, text);
+		if (!this.hasDecorationTargetNodes(frame, decoration)) {
+			return false;
+		}
+		return decoration.kind !== "summary" || text.length > 0;
+	}
+
+	private hasDecorationTargetNodes(
+		frame: MindMapFrontendFrame,
+		decoration: Exclude<MindMapDecoration, { readonly kind: "marker" }>,
+	): boolean {
+		const nodeIds = this.getDecorationTargetNodeIds(decoration);
+		if (nodeIds.length === 0) {
+			return false;
+		}
+		const knownNodeIds = this.getDecorationValidationContext(frame).nodeIds;
+		return (
+			knownNodeIds === undefined ||
+			nodeIds.every((nodeId) => knownNodeIds.has(nodeId))
+		);
+	}
+
+	private getDecorationTargetNodeIds(
+		decoration: MindMapDecoration,
+	): readonly string[] {
+		switch (decoration.kind) {
+			case "marker":
+				return [decoration.nodeId];
+			case "boundary":
+			case "summary":
+				return [...decoration.nodeIds];
+			case "relationship":
+				return [decoration.fromNodeId, decoration.toNodeId];
+		}
 	}
 
 	private showDecorationValidationMessage(
@@ -2902,7 +3073,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 	private applyDecorationCommand(
 		frame: MindMapFrontendFrame,
 		command: MindMapDecorationCommand,
-		label: string,
+		action: MindMapPresentationHistoryAction,
 	): void {
 		const state = this.createDecorationCommandState(frame);
 		if (state === null) {
@@ -2921,7 +3092,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 				});
 				return;
 			}
-			this.commitDecorationState(frame, next, label);
+			this.commitDecorationState(frame, next, action);
 		} catch {
 			this.showInformationalStatus(this.t("frontend.decorations.invalid"));
 		}
@@ -2930,13 +3101,13 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 	private commitDecorationState(
 		frame: MindMapFrontendFrame,
 		state: ReturnType<typeof createMindMapDecorationCommandState>,
-		label: string,
+		action: MindMapPresentationHistoryAction,
 	): void {
 		this.dispatch({
 			type: "apply-presentation-patch",
 			patch: { decorations: state.decorations },
 			scope: "document",
-			label,
+			action,
 		});
 		if (
 			state.selection.selectedDecorationId !==
@@ -3148,7 +3319,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			[
 				{
 					value: "all",
-					label: this.t("frontend.navigation.depthAll"),
+					label: this.getVisibleDepthAllLabel(frame),
 				},
 				...Array.from({ length: 6 }, (_, index) => ({
 					value: String(index),
@@ -3163,11 +3334,54 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			frame.interaction.visibleDepthLimit === null
 				? "all"
 				: String(frame.interaction.visibleDepthLimit),
-			this.t("frontend.navigation.depthAll"),
+			this.getVisibleDepthAllLabel(frame),
 		);
 		elements.visibleDepthSelect.disabled = false;
 		elements.minimapToggle.disabled = false;
 		elements.minimapToggle.checked = frame.interaction.minimapVisible;
+	}
+
+	private updateLargeMapGuard(frame: MindMapFrontendFrame): void {
+		const elements = this.elements;
+		if (elements === null) {
+			return;
+		}
+		const guard = frame.largeMapGuard;
+		const visible =
+			frame.document.status === "ready" &&
+			guard !== null &&
+			guard !== undefined &&
+			guard.protection.requiresExplicitFullRender &&
+			!guard.fullMapConfirmed;
+		elements.largeMapNotice.hidden = !visible;
+		if (!visible || guard === null || guard === undefined) {
+			elements.largeMapMessage.textContent = "";
+			elements.largeMapNotice.removeAttribute("aria-label");
+			elements.largeMapShowAllButton.disabled = true;
+			return;
+		}
+
+		const key =
+			guard.protection.level === "guarded"
+				? "frontend.largeMap.guarded"
+				: "frontend.largeMap.warning";
+		const message = this.t(key, {
+			nodeCount: this.translator.formatNumber(
+				guard.protection.nodeCount,
+			),
+			visibleNodeCount: this.translator.formatNumber(
+				guard.protection.initialVisibleNodeCount,
+			),
+			hiddenNodeCount: this.translator.formatNumber(
+				guard.protection.hiddenNodeCount,
+			),
+			depth: this.translator.formatNumber(
+				guard.protection.initialVisibleDepthLimit ?? 0,
+			),
+		});
+		elements.largeMapMessage.textContent = message;
+		elements.largeMapNotice.setAttribute("aria-label", message);
+		elements.largeMapShowAllButton.disabled = false;
 	}
 
 	private readonly handleNavigationClick = (event: MouseEvent): void => {
@@ -3214,8 +3428,24 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		if (depth !== null && (!Number.isSafeInteger(depth) || depth < 0)) {
 			return;
 		}
+		if (
+			depth === null &&
+			this.currentFrame?.largeMapGuard?.protection
+				.requiresExplicitFullRender === true &&
+			this.currentFrame.largeMapGuard.fullMapConfirmed === false
+		) {
+			this.dispatch({ type: "show-full-large-map" });
+			return;
+		}
 		this.dispatch({ type: "change-visible-depth", depth });
 	};
+
+	private getVisibleDepthAllLabel(frame: MindMapFrontendFrame): string {
+		return frame.largeMapGuard?.protection.requiresExplicitFullRender ===
+			true && frame.largeMapGuard.fullMapConfirmed === false
+			? this.t("frontend.largeMap.showAll")
+			: this.t("frontend.navigation.depthAll");
+	}
 
 	private readonly handleMinimapChange = (): void => {
 		const visible = this.elements?.minimapToggle.checked;
@@ -3574,6 +3804,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		elements.collapseButton.disabled = !enabled;
 		elements.undoButton.disabled = !enabled;
 		elements.redoButton.disabled = !enabled;
+		elements.largeMapShowAllButton.disabled = !enabled;
 		elements.layoutSelect.disabled = !enabled;
 		for (const control of Array.from(
 			elements.layoutOptionsContainer.querySelectorAll<
@@ -3633,6 +3864,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			}
 		} else if (this.currentFrame !== null) {
 			this.updatePresentationSelects(this.currentFrame);
+			this.updateLargeMapGuard(this.currentFrame);
 		}
 	}
 
@@ -3643,6 +3875,8 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		}
 
 		elements.rendererContainer.hidden = true;
+		elements.largeMapNotice.hidden = true;
+		elements.largeMapShowAllButton.disabled = true;
 		elements.status.hidden = false;
 		elements.status.textContent = message;
 		elements.status.title = details ?? "";
@@ -3892,8 +4126,68 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 		}
 	}
 
+	private updatePresentationHistoryControls(
+		frame: MindMapFrontendFrame,
+	): void {
+		const elements = this.elements;
+		if (elements === null) {
+			return;
+		}
+		const availability = frame.presentationHistoryAvailability;
+		const ready = frame.document.status === "ready";
+		const undoAction = availability?.undoAction ?? null;
+		const redoAction = availability?.redoAction ?? null;
+		elements.presentationUndoButton.disabled =
+			!ready || availability?.hasUndoEntry !== true;
+		elements.presentationRedoButton.disabled =
+			!ready || availability?.hasRedoEntry !== true;
+
+		setLocalizedButtonLabel(
+			elements.presentationUndoButton,
+			undoAction === null
+				? "frontend.presentationHistory.undo"
+				: "frontend.presentationHistory.undoAction",
+			this.translator,
+			undoAction === null
+				? undefined
+				: {
+						action: this.t(
+							undoAction.translationKey,
+							undoAction.values,
+						),
+					},
+		);
+		setLocalizedButtonLabel(
+			elements.presentationRedoButton,
+			redoAction === null
+				? "frontend.presentationHistory.redo"
+				: "frontend.presentationHistory.redoAction",
+			this.translator,
+			redoAction === null
+				? undefined
+				: {
+						action: this.t(
+							redoAction.translationKey,
+							redoAction.values,
+						),
+					},
+		);
+	}
+
 	private readonly handleFit = (): void => {
 		this.dispatch({ type: "fit-view" });
+	};
+
+	private readonly handleLargeMapShowAll = (): void => {
+		const guard = this.currentFrame?.largeMapGuard;
+		if (
+			this.currentFrame?.document.status !== "ready" ||
+			guard?.protection.requiresExplicitFullRender !== true ||
+			guard.fullMapConfirmed
+		) {
+			return;
+		}
+		this.dispatch({ type: "show-full-large-map" });
 	};
 
 	private readonly handleUndo = (): void => {
@@ -3921,6 +4215,34 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			nodeIds: [...frame.interaction.selectedNodeIds],
 			primaryNodeId: frame.interaction.primarySelectedNodeId,
 			sourceRevision: frame.document.document.sourceRevision,
+		});
+	};
+
+	private readonly handlePresentationUndo = (): void => {
+		const frame = this.currentFrame;
+		if (
+			frame?.document.status !== "ready" ||
+			frame.presentationHistoryAvailability?.hasUndoEntry !== true
+		) {
+			return;
+		}
+		this.dispatch({
+			type: "presentation-history",
+			direction: "undo",
+		});
+	};
+
+	private readonly handlePresentationRedo = (): void => {
+		const frame = this.currentFrame;
+		if (
+			frame?.document.status !== "ready" ||
+			frame.presentationHistoryAvailability?.hasRedoEntry !== true
+		) {
+			return;
+		}
+		this.dispatch({
+			type: "presentation-history",
+			direction: "redo",
 		});
 	};
 
@@ -4296,7 +4618,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			type: "preview-presentation-patch",
 			gestureId: request.gestureId,
 			patch: request.patch,
-			label: request.label,
+			action: request.action,
 		});
 	};
 
@@ -4314,7 +4636,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 				type: "preview-presentation-patch",
 				gestureId: request.gestureId,
 				patch: request.patch,
-				label: request.label,
+				action: request.action,
 			});
 			this.dispatch({
 				type: "commit-presentation-preview",
@@ -4326,7 +4648,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			type: "apply-presentation-patch",
 			patch: request.patch,
 			scope: "document",
-			label: request.label,
+			action: request.action,
 		});
 	};
 
@@ -4354,7 +4676,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 	): {
 		readonly gestureId: string;
 		readonly patch: MindMapPresentationPatch;
-		readonly label: string;
+		readonly action: MindMapPresentationHistoryAction;
 	} | null {
 		const frame = this.currentFrame;
 		const key = control.dataset.obmindLayoutOptionKey;
@@ -4394,9 +4716,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 					},
 				},
 			},
-			label: this.t("frontend.layout.changeOption", {
-				label: definition.label,
-			}),
+			action: createMindMapPresentationHistoryAction(
+				"history.change-presentation",
+			),
 		};
 	}
 
@@ -4746,7 +5068,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			type: "preview-presentation-patch",
 			gestureId: request.gestureId,
 			patch: request.patch,
-			label: request.label,
+			action: request.action,
 		});
 	};
 
@@ -4764,7 +5086,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 				type: "apply-presentation-patch",
 				patch: request.patch,
 				scope: "document",
-				label: request.label,
+				action: request.action,
 			});
 			return;
 		}
@@ -4772,7 +5094,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 			type: "preview-presentation-patch",
 			gestureId: request.gestureId,
 			patch: request.patch,
-			label: request.label,
+			action: request.action,
 		});
 		this.dispatch({
 			type: "commit-presentation-preview",
@@ -4808,7 +5130,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 				),
 			},
 			scope: "document",
-			label: this.t("frontend.format.resetSelected"),
+			action: createMindMapPresentationHistoryAction(
+				"frontend.format.resetSelected",
+			),
 		});
 	};
 
@@ -4838,7 +5162,7 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 	): {
 		readonly gestureId: string;
 		readonly patch: MindMapPresentationPatch;
-		readonly label: string;
+		readonly action: MindMapPresentationHistoryAction;
 	} | null {
 		const frame = this.currentFrame;
 		const field = control.dataset.obmindFormattingField;
@@ -4874,9 +5198,9 @@ export class BasicMindMapFrontend implements MindMapFrontend {
 					command,
 				),
 			},
-			label: this.t("frontend.format.fieldHistory", {
-				field: getFormattingFieldLabel(field, this.translator),
-			}),
+			action: createMindMapPresentationHistoryAction(
+				"history.change-presentation",
+			),
 		};
 	}
 
@@ -8508,24 +8832,6 @@ function getSpacingLabelKey(
 		subtree: "frontend.layout.spacing.subtree",
 	};
 	return keys[key];
-}
-
-function getFormattingFieldLabel(
-	field: string,
-	translator: ObMindTranslator,
-): string {
-	const keys: Readonly<Record<string, ObMindTranslationKey>> = {
-		shape: "frontend.format.shape",
-		fontSize: "frontend.format.fontSize",
-		fontWeight: "frontend.format.fontWeight",
-		borderWidth: "frontend.format.borderWidth",
-		radius: "frontend.format.cornerRadius",
-		fill: "frontend.format.fill",
-		stroke: "frontend.format.border",
-		textColor: "frontend.format.text",
-	};
-	const key = keys[field];
-	return key === undefined ? field : translator.t(key);
 }
 
 function updateToolbarSelect(

@@ -64,4 +64,37 @@ describe("node presentation formatting", () => {
 			}),
 		).toThrow(RangeError);
 	});
+
+	it("resets formatting without removing node assets", () => {
+		const current = new Map<string, MindMapNodePresentation>([
+			[
+				"a",
+				{
+					shape: "ellipse",
+					fill: literalColor("#336699"),
+					borderWidth: 4,
+					radius: 12,
+					typography: { fontSize: 22 },
+					iconId: "flag",
+					markerIds: ["done"],
+				},
+			],
+		]);
+
+		expect(
+			createMindMapNodeFormattingPatch(current, ["a"], {
+				type: "reset",
+			}),
+		).toEqual(
+			new Map([
+				[
+					"a",
+					{
+						iconId: "flag",
+						markerIds: ["done"],
+					},
+				],
+			]),
+		);
+	});
 });

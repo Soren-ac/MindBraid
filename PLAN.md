@@ -1,5 +1,86 @@
 # MindBraid development plan
 
+## 0.1.4 release hardening (2026-08-08)
+
+### Release and CI decisions
+
+- Release metadata is deliberately kept in four synchronized files:
+  `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`.
+  `scripts/verify-release-version.mjs` checks that contract and, when given a
+  tag, requires the exact strict `x.y.z` version without a `v` prefix.
+- `scripts/verify-release-artifacts.mjs` validates the three Community Plugin
+  assets (`main.js`, `manifest.json`, and `styles.css`) as non-empty release
+  files, checks the manifest against the repository contract, and verifies the
+  CSS scope. `npm run check` includes both release validations after the
+  production build.
+- `.github/workflows/ci.yml` runs the complete repository checks on Node 22 for
+  main-branch pushes, pull requests, and manual dispatches. It also rejects
+  whitespace errors.
+- `.github/workflows/release.yml` runs only from an existing strict-version Git
+  tag. It installs from the lockfile, verifies the tag/version contract, builds
+  and verifies production assets, refuses uncommitted generated output, creates
+  provenance attestations for each installable asset, and creates a GitHub
+  draft release. A rerun may replace assets on a draft release, but refuses to
+  alter an already published release.
+- This supersedes the historical manual-only release decision below. The
+  workflow uses GitHub-hosted actions and `gh`; it introduces no runtime or
+  bundled dependency.
+- The 0.1.4 lockfile receives a minimal transitive development-tool security
+  update: `fast-uri` 3.1.5, `js-yaml` 4.3.1, and `nanoid` 3.3.18. No direct or
+  runtime dependency changes are required. A TLS-verified audit against the
+  official npm registry reports zero production and development advisories for
+  the resulting lockfile.
+
+### Documentation decision
+
+- MindBraid is now installed primarily from Obsidian Community Plugins. GitHub
+  Release installation remains a documented fallback for offline/manual use.
+
+### Presentation history UI decision
+
+- Markdown history and Presentation history remain two independent user
+  actions. The existing toolbar undo/redo continues to operate only on checked
+  source mutations; the settings-sidebar header exposes separate visual
+  undo/redo controls.
+- `MindMapFrontendFrame` carries snapshot-free Presentation-history
+  availability plus the next stable action descriptor. The replaceable frontend never sees
+  persisted annotation snapshots and emits only the existing semantic
+  `presentation-history` intent.
+- The host derives availability from the bounded per-document history store and
+  refreshes every open view after commit, undo, or redo. No history operation
+  changes Markdown.
+
+### Large-map protection decision
+
+- `src/layout/large-map-policy.ts` owns a renderer-neutral policy. Maps with at
+  least 2,000 parsed topics receive an advisory safe projection; maps with at
+  least 10,000 receive a stricter projection. The selected depth is bounded by
+  both the actual breadth of the tree and a visible-node budget, so a very wide
+  root cannot bypass protection.
+- Protection is applied before layout through the existing visible-depth
+  projection. The acknowledgement to render all topics belongs to one
+  `MindMapViewSession` and source path; it is never persisted to Markdown,
+  annotations, or defaults and is not silently reset by repeated editor
+  refreshes.
+- The frontend announces the node count and safe projection and requires an
+  explicit **Show all** action. This is a first-stage main-thread safeguard, not
+  a claim that layout has moved to a Worker.
+- No runtime dependency was added for either feature. The pure policy, session,
+  frontend intent, and host adapter remain separately testable and replaceable.
+
+### Release hardening follow-ups
+
+- Presentation history stores stable translation keys and interpolation values,
+  never frozen UI strings. Replaceable frontends translate the next undo/redo
+  action with their active locale at render time.
+- Presentation undo/redo re-reads the authoritative editor/Vault content inside
+  the serialized persistence queue and compares the source revision before
+  rebinding metadata-free locators. A queued operation that races a Markdown
+  edit leaves its history entry untouched and refreshes the controller instead
+  of writing stale presentation data.
+- The large-map acknowledgement is tab-local and opt-in for full rendering; it
+  never changes Markdown or persisted visual annotations.
+
 ## Built-in visual Style expansion (2026-08-05)
 
 This iteration adds four new independently selectable visual Styles and
@@ -1956,3 +2037,30 @@ logic already aligned with the existing parser and mutation planners.
   Community Plugins entry and break installed settings and annotations. GitHub
   repository naming and product branding remain independent of this stable
   compatibility identifier.
+
+## 0.1.4 browser visual regression baseline
+
+- Browser visual coverage uses `@playwright/test` as a development-only
+  dependency. It is invoked only by `npm run test:visual`, is excluded from
+  `main.js`, and introduces no runtime dependency, network behavior, or
+  telemetry in the installed plugin.
+- `tests/visual/fixture-entry.ts` mounts the production
+  `BasicMindMapFrontend` and `DomSvgMindMapRenderer` through their public UI
+  contracts. The fixture reads a fixed in-memory Markdown document and routes
+  only UI state changes; it never accesses Obsidian, the Vault, or Markdown
+  mutation APIs.
+- `tests/visual/host-css.ts` supplies only deterministic test-host copies of
+  the Obsidian CSS variables required by `styles.css`. The production sheet is
+  still loaded unchanged, so snapshots validate the actual plugin CSS rather
+  than a parallel approximation.
+- Chromium uses a fixed 1440×960 viewport, 1× device scale factor, UTC locale
+  and timezone, reduced motion, sRGB color, and a stable host font stack.
+  Baselines are partitioned by operating-system family because browser text
+  rasterization remains platform-specific even with the same fixture. CI runs
+  and reviews the `chromium-linux` baseline; macOS/Windows developers use
+  their corresponding independently versioned baseline.
+- Screenshots cover light/dark rendering, independent Style/Palette
+  composition, long wrapped topic text, task controls, selection, inline
+  editing, collapsed descendant disclosure, and the Appearance/Layout
+  inspector panels. Generated browser bundles and result artifacts live under
+  `node_modules/.cache`; only reviewed baseline screenshots are versioned.

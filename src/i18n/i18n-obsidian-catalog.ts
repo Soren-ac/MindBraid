@@ -96,6 +96,8 @@ export const OBMIND_OBSIDIAN_EN_MESSAGES = {
 	"import-modal.central-topic": "Central topic: {topic}",
 	"import-modal.topics-found":
 		"{count} topics found. The central topic becomes the note name; {attachedCount} attached topics become nested Markdown lists.",
+	"import-modal.large-map-warning":
+		"This import has {count} topics. Its first mind-map view may limit visible levels for responsiveness; you can explicitly show all nodes if needed.",
 	"import-modal.destination": "Destination: {path}",
 	"import-modal.no-losses":
 		"Topic text and hierarchy can be imported without known losses.",
@@ -237,6 +239,8 @@ export const OBMIND_OBSIDIAN_ZH_CN_MESSAGES = {
 	"import-modal.central-topic": "中心主题：{topic}",
 	"import-modal.topics-found":
 		"找到 {count} 个主题。中心主题会作为笔记名称；其余 {attachedCount} 个关联主题会转换为嵌套 Markdown 列表。",
+	"import-modal.large-map-warning":
+		"此导入文件包含 {count} 个主题。为保证响应速度，首次打开导图时可能限制可见层级；如有需要可手动显示全部节点。",
 	"import-modal.destination": "目标位置：{path}",
 	"import-modal.no-losses": "主题文本和层级可在当前已知范围内无损导入。",
 	"import-modal.not-preserved": "不会保留",

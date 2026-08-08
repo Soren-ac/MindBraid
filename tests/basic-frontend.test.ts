@@ -30,6 +30,7 @@ import {
 	createDefaultMindMapInteractionState,
 	createDefaultMindMapPresentation,
 } from "../src/presentation/presentation";
+import { createMindMapPresentationHistoryAction } from "../src/presentation/presentation-history";
 import type {
 	MindMapRenderer,
 	MindMapRendererFactory,
@@ -88,6 +89,12 @@ function createIdleFrame(
 			hasUndoEntry: false,
 			hasRedoEntry: false,
 		},
+		presentationHistoryAvailability: {
+			hasUndoEntry: false,
+			hasRedoEntry: false,
+			undoAction: null,
+			redoAction: null,
+		},
 	};
 }
 
@@ -131,6 +138,12 @@ function createReadyFrame(
 			hasInternalClipboard: false,
 			hasUndoEntry: false,
 			hasRedoEntry: false,
+		},
+		presentationHistoryAvailability: {
+			hasUndoEntry: false,
+			hasRedoEntry: false,
+			undoAction: null,
+			redoAction: null,
 		},
 	};
 }
@@ -319,11 +332,209 @@ describe("BasicMindMapFrontend appearance control", () => {
 				hasUndoEntry: false,
 				hasRedoEntry: false,
 			},
+			presentationHistoryAvailability: {
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+				undoAction: null,
+				redoAction: null,
+			},
 		});
 
 		expect(renderMindMap).toHaveBeenCalledWith(
 			expect.objectContaining({ colorScheme: "light" }),
 		);
+		frontend.destroy();
+	});
+
+	it("exposes presentation undo and redo separately from Markdown history", async () => {
+		const events: MindMapFrontendEvent[] = [];
+		const frontend = new BasicMindMapFrontend(
+			(event) => {
+				events.push(event);
+			},
+			rendererFactory,
+			() => undefined,
+		);
+		frontend.mount(document.body);
+		frontend.update({
+			...createReadyFrame("colorful", "colorful"),
+			presentationHistoryAvailability: {
+				hasUndoEntry: true,
+				hasRedoEntry: false,
+				undoAction: createMindMapPresentationHistoryAction(
+					"history.change-presentation",
+				),
+				redoAction: null,
+			},
+		});
+
+		const undo = document.body.querySelector<HTMLButtonElement>(
+			".obmind-sidebar-history-button:first-of-type",
+		);
+		const redo = document.body.querySelector<HTMLButtonElement>(
+			".obmind-sidebar-history-button:nth-of-type(2)",
+		);
+		const sourceUndo = document.body.querySelector<HTMLButtonElement>(
+			'.obmind-pill-history button[aria-label="Undo"]',
+		);
+		if (undo === null || redo === null || sourceUndo === null) {
+			throw new Error("Expected separate source and presentation history controls.");
+		}
+		expect(undo.disabled).toBe(false);
+		expect(undo.title).toBe(
+			"Undo visual change: Change mind-map presentation",
+		);
+		expect(redo.disabled).toBe(true);
+		expect(sourceUndo.disabled).toBe(true);
+		undo.click();
+		await vi.waitFor(() => {
+			expect(events).toContainEqual({
+				type: "presentation-history",
+				direction: "undo",
+			});
+		});
+
+		frontend.update({
+			...createReadyFrame("colorful", "colorful"),
+			presentationHistoryAvailability: {
+				hasUndoEntry: false,
+				hasRedoEntry: true,
+				undoAction: null,
+				redoAction: createMindMapPresentationHistoryAction(
+					"history.change-presentation",
+				),
+			},
+		});
+		expect(undo.disabled).toBe(true);
+		expect(redo.disabled).toBe(false);
+		expect(redo.title).toBe(
+			"Redo visual change: Change mind-map presentation",
+		);
+		redo.click();
+		await vi.waitFor(() => {
+			expect(events).toContainEqual({
+				type: "presentation-history",
+				direction: "redo",
+			});
+		});
+		frontend.destroy();
+	});
+
+	it("translates retained presentation history actions in the active language", () => {
+		const frontend = new BasicMindMapFrontend(
+			() => undefined,
+			rendererFactory,
+			() => undefined,
+		);
+		frontend.mount(document.body);
+		const availability = {
+			hasUndoEntry: true,
+			hasRedoEntry: false,
+			undoAction: createMindMapPresentationHistoryAction(
+				"history.change-presentation",
+			),
+			redoAction: null,
+		};
+		frontend.update({
+			...createReadyFrame("colorful", "colorful", "dark", undefined, undefined, undefined, "en"),
+			presentationHistoryAvailability: availability,
+		});
+		const undo = document.body.querySelector<HTMLButtonElement>(
+			".obmind-sidebar-history-button:first-of-type",
+		);
+		if (undo === null) {
+			throw new Error("Expected the presentation undo control.");
+		}
+		expect(undo.title).toBe(
+			"Undo visual change: Change mind-map presentation",
+		);
+
+		frontend.update({
+			...createReadyFrame("colorful", "colorful", "dark", undefined, undefined, undefined, "zh-CN"),
+			presentationHistoryAvailability: availability,
+		});
+		expect(undo.title).toBe("撤销视觉修改：修改思维导图展示设置");
+		frontend.destroy();
+	});
+});
+
+describe("BasicMindMapFrontend large-map protection", () => {
+	it("announces the temporary safe projection and requires an explicit full-map action", async () => {
+		const events: MindMapFrontendEvent[] = [];
+		const frontend = new BasicMindMapFrontend(
+			(event) => {
+				events.push(event);
+			},
+			rendererFactory,
+			() => undefined,
+		);
+		frontend.mount(document.body);
+		frontend.update({
+			...createReadyFrame("colorful", "colorful"),
+			interaction: {
+				...createDefaultMindMapInteractionState(),
+				visibleDepthLimit: 3,
+			},
+			largeMapGuard: {
+				protection: {
+					level: "guarded",
+					nodeCount: 10_001,
+					initialVisibleDepthLimit: 3,
+					initialVisibleNodeCount: 40,
+					hiddenNodeCount: 9_961,
+					requiresExplicitFullRender: true,
+				},
+				fullMapConfirmed: false,
+			},
+		});
+
+		const notice = document.body.querySelector<HTMLElement>(
+			".obmind-large-map-notice",
+		);
+		const showAll = document.body.querySelector<HTMLButtonElement>(
+			'.obmind-large-map-notice-action[aria-label*="every node"]',
+		);
+		const visibleDepth = document.body.querySelector<HTMLSelectElement>(
+			'[aria-label="Maximum visible descendant levels"]',
+		);
+		if (notice === null || showAll === null || visibleDepth === null) {
+			throw new Error("Expected large-map protection controls.");
+		}
+		expect(notice.hidden).toBe(false);
+		expect(notice.textContent).toContain("10,001 nodes");
+		expect(showAll.disabled).toBe(false);
+		expect(visibleDepth.options[0]?.textContent).toBe(
+			"Show all (may be slow)",
+		);
+
+		showAll.click();
+		await vi.waitFor(() => {
+			expect(events).toContainEqual({ type: "show-full-large-map" });
+		});
+
+		visibleDepth.value = "all";
+		visibleDepth.dispatchEvent(new Event("change"));
+		await vi.waitFor(() => {
+			expect(
+				events.filter(({ type }) => type === "show-full-large-map"),
+			).toHaveLength(2);
+		});
+
+		frontend.update({
+			...createReadyFrame("colorful", "colorful"),
+			largeMapGuard: {
+				protection: {
+					level: "guarded",
+					nodeCount: 10_001,
+					initialVisibleDepthLimit: 3,
+					initialVisibleNodeCount: 40,
+					hiddenNodeCount: 9_961,
+					requiresExplicitFullRender: true,
+				},
+				fullMapConfirmed: true,
+			},
+		});
+		expect(notice.hidden).toBe(true);
 		frontend.destroy();
 	});
 });

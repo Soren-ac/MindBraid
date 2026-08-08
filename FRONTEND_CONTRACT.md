@@ -71,13 +71,13 @@ The presence of a type is not a claim that its UI is finished.
 | Selected-topic formatting | Multi-select shape, fill/stroke/text color, border, radius, font size/weight, mixed values, and reset | Sparse capability-validated node patches; no Markdown read or write |
 | Presentation preview | Continuous controls render a view-only preview and commit at most one durable change | Immutable baseline/preview gesture state, stale check, rollback, and at most one history entry per completed gesture |
 | Durable presentation | Document layout/style/palette/global-font/connector-width/profile, collapse, viewport, and sparse node/edge state in plugin data | Versioned `AnnotationStore`, conservative locators, field-granular hydration, and orphan records |
-| Presentation undo/redo | Bounded per-document core/host path; no phase-one toolbar button | Explicit `presentation-history` event, separate from Markdown history |
+| Presentation undo/redo | Bounded per-document history with independent visual undo/redo controls in the sidebar header | Snapshot-free availability and labels in each frontend frame; explicit `presentation-history` event, separate from Markdown history |
 | Context menu | Edit/create/copy/cut/paste/delete/source actions | Emits the same semantic intents as keyboard/pointer adapters |
 | Icons, markers and labels | Offline priority/progress/status/flag/star/icon assets plus one free-text label per topic; supports multi-selection apply/remove/reset and export | Injectable primitive-only `MindMapAssetRegistry`; semantic palette roles, no URLs/DOM, and node/decoration storage stays outside Markdown |
 | Boundaries, summaries, relationships | Sidebar creation/edit/delete, deterministic rendering, annotation persistence/history, selection, and export are implemented | Pure decoration commands and renderer-neutral geometry; future adapters may replace controls and visuals without changing persistence |
 | Focus and drill-down | Focus selected branch, breadcrumb navigation, clear focus, and visible-depth limit are implemented per tab | Pure immutable focus projection before layout; no source or document-presentation mutation |
 | Minimap | Optional non-exported scene/viewport overview with click-and-drag recentering | Pure scene/minimap transforms plus renderer-owned pointer adapter and cleanup |
-| Large-map culling | Above the registered threshold, offscreen nodes/edges are culled with overscan while interaction-owned topics remain pinned | Pure `scene-culling` result; fit/export continue to use the complete layout result |
+| Large-map protection and culling | Large maps receive a tab-local safe depth projection before layout, an explicit full-render action, then viewport culling with pinned interaction topics | Pure `large-map-policy` and `scene-culling` results; acknowledgement is never persisted and fit/export continue to use their explicit scope |
 | Accessibility tree | Canvas exposes tree/treeitem, level, sibling position, expanded state, decoration labels, and keyboard focus; decorative edges are not focusable | Renderer-neutral tree semantics derived from the visible model and projected geometry |
 | Editing node text | Selected click, double-click, Space, or F2; visible multiline via `<br>`; conservative inline-wrapper preservation; root rename | Semantic edit event/command, immutable source snapshot, and typed editing capability |
 
@@ -597,6 +597,7 @@ Frontend events cover:
 - begin/update preview patches plus explicit presentation-preview commit/cancel;
 - custom Style/Palette library duplicate, update, and delete commands;
 - explicit presentation-history undo/redo, separate from source history.
+- explicit tab-local opt-in to render every node after large-map protection.
 
 Frontend commands cover fit, focus-node, viewport restore, beginning a node
 edit, and a renderer-agnostic keyboard gesture routed from the active

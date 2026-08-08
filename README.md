@@ -55,6 +55,8 @@ Use the map as a working view, not just a diagram:
   branch, or use the minimap when the map becomes dense.
 - Use familiar topic actions for task checkboxes, copy, cut, paste, delete,
   outdent, parent insertion, and checked undo/redo.
+- Undo or redo visual changes from the settings sidebar without touching the
+  separate Markdown content history.
 
 ### Make it yours
 
@@ -87,6 +89,9 @@ a topic's line.
 
 **Present the right level of detail** — Collapse individual branches, focus on
 one branch with breadcrumbs, limit visible depth, and use a tab-local minimap.
+Unusually large maps open with a safe depth projection and an explicit
+**Show all** action, keeping the initial tab responsive without changing the
+note or its saved presentation.
 
 **Move work in and out** — Import a locally selected `.xmind`, `.mind`, or
 `.mmap` file through a preview, then explicitly create a new Markdown note.
@@ -102,7 +107,16 @@ Chinese and English; new installs use Simplified Chinese by default.
 MindBraid requires Obsidian `1.7.2` or newer on desktop. Mobile support has not
 been implemented or tested.
 
-### From a release
+### From Obsidian Community Plugins (recommended)
+
+1. Open **Settings → Community plugins** in Obsidian and select **Browse**.
+2. Search for **MindBraid**.
+3. Select **Install**, then enable **MindBraid**.
+
+MindBraid is available in the official Community Plugins directory. This route
+keeps updates inside Obsidian and is the recommended installation method.
+
+### Manual install from a GitHub release
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the latest
    [release](https://github.com/Soren-ac/MindBraid/releases).
@@ -110,9 +124,6 @@ been implemented or tested.
 3. Put all three files in that directory.
 4. Reload Obsidian, then enable **MindBraid** under **Settings → Community
    plugins**.
-
-When MindBraid is listed in Obsidian Community Plugins, installation will also be
-available from the in-app Community Plugins browser.
 
 ## Start a map
 
@@ -148,8 +159,9 @@ indented code, and unsupported Markdown structures stay out of the map.
 - Inline topic editing is deliberately conservative. It preserves supported
   inline Markdown where the source mapping is unambiguous; otherwise it safely
   writes escaped visible text for that topic.
-- Very large maps benefit from viewport culling, but layout still runs on the
-  main thread.
+- Very large maps use an initial tab-local depth guard and viewport culling.
+  Choosing **Show all** can still make layout slower because layout currently
+  runs on the main thread.
 
 ## Privacy and source changes
 

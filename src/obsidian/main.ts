@@ -132,7 +132,10 @@ import {
   type MindMapPresentation,
 } from "../presentation/presentation";
 import {
+  createMindMapPresentationHistoryAvailability,
+  isMindMapPresentationHistorySourceCurrent,
   MindMapPresentationHistoryStore,
+  type MindMapPresentationHistoryAvailability,
 } from "../presentation/presentation-history";
 import {
   applyAvailableMindMapPresentationThemeSelection,
@@ -513,6 +516,18 @@ export default class ObMindPlugin
     };
   }
 
+  public getMindMapPresentationHistoryAvailability(
+    path: string | null,
+  ): MindMapPresentationHistoryAvailability {
+    if (path === null) {
+      return createMindMapPresentationHistoryAvailability();
+    }
+    return (
+      this.presentationHistories.get(path)?.getAvailability() ??
+      createMindMapPresentationHistoryAvailability()
+    );
+  }
+
   public createMindMapPresentation(
     state: MindMapViewState,
   ): MindMapPresentation {
@@ -569,6 +584,14 @@ export default class ObMindPlugin
   ): Promise<void> {
     if (this.unloading) {
       return;
+    }
+    if (
+      selectDocumentPresentationAnnotationFields(request.fields).length > 0 &&
+      request.presentationHistoryAction === undefined
+    ) {
+      throw new TypeError(
+        "Presentation history writes require a locale-independent action.",
+      );
     }
     await this.presentationPersistenceQueue.run(async () => {
       const path = request.document.root.source.path;
@@ -689,6 +712,12 @@ export default class ObMindPlugin
         committedFields,
       );
       if (historyFields.length > 0) {
+        const action = request.presentationHistoryAction;
+        if (action === undefined) {
+          throw new TypeError(
+            "Presentation history writes require a locale-independent action.",
+          );
+        }
         const snapshots = createDocumentPresentationHistoryEntrySnapshots(
           request.document,
           outcome.committed.before,
@@ -698,7 +727,7 @@ export default class ObMindPlugin
         this.presentationHistories.getOrCreate(path).record({
           before: snapshots.before,
           after: snapshots.after,
-          label: request.label,
+          action,
         });
       }
       for (const view of this.liveViews) {
@@ -735,10 +764,35 @@ export default class ObMindPlugin
         history.clear();
         return false;
       }
+
+      // Presentation history stores metadata-free structural locators. Resolve
+      // them only against the Markdown buffer that is authoritative at the
+      // actual restore boundary, not against a stale ItemView document.
+      const authoritativeContent = await this.readCurrentContent(file);
+      const authoritativeDocument = parseMarkdown(
+        authoritativeContent,
+        file.path,
+        file.basename,
+      );
+      if (
+        !isMindMapPresentationHistorySourceCurrent(
+          document,
+          authoritativeDocument,
+        )
+      ) {
+        // Do not consume history or write annotations after a source race. A
+        // fresh controller frame keeps every open view aligned with the live
+        // editor/Vault content that made this restore inapplicable.
+        this.controller.commitContent(
+          createSourceDescriptor(file),
+          authoritativeContent,
+        );
+        return false;
+      }
       await this.persistPluginDataMutation((data) => {
         const existing = getDocumentAnnotationRecord(data.annotations, path);
         const restored = restoreDocumentPresentationHistorySnapshot(
-          document,
+          authoritativeDocument,
           existing,
           snapshot,
         );

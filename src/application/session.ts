@@ -6,6 +6,10 @@ import type {
 	MindMapViewportState,
 } from "../presentation/presentation";
 import { normalizeMindMapVisibleDepthLimit } from "../topic/interaction/node-focus";
+import type {
+	MindMapLargeMapGuardState,
+	MindMapLargeMapProtection,
+} from "../layout/large-map-policy";
 
 /**
  * Transient state for one open mind-map tab. It is deliberately independent
@@ -20,6 +24,13 @@ export class MindMapViewSession {
 	private hoveredNodeId: string | null = null;
 	private focusRootNodeId: string | null = null;
 	private visibleDepthLimit: number | null = null;
+	private largeMapGuard: {
+		readonly sourcePath: string;
+		readonly protection: MindMapLargeMapProtection;
+		readonly fullMapConfirmed: boolean;
+		/** The depth written by the guard itself, never a user-selected depth. */
+		readonly appliedVisibleDepthLimit: number | null;
+	} | null = null;
 	private selectedDecorationId: string | null = null;
 	private minimapVisible = false;
 	private viewport: MindMapViewportState | null = null;
@@ -110,6 +121,107 @@ export class MindMapViewSession {
 		};
 	}
 
+	/**
+	 * Returns the tab-local acknowledgement for the current source only. This
+	 * state intentionally is not a presentation or Markdown field.
+	 */
+	public getLargeMapGuardState(
+		sourcePath: string,
+	): MindMapLargeMapGuardState | null {
+		const guard = this.largeMapGuard;
+		if (guard === null || guard.sourcePath !== sourcePath) {
+			return null;
+		}
+		return {
+			protection: guard.protection,
+			fullMapConfirmed: guard.fullMapConfirmed,
+		};
+	}
+
+	/**
+	 * Applies the initial safe projection once for this source in this tab.
+	 * Refreshes may update counts/copy but never reimpose the depth limit after
+	 * the user has explicitly chosen to render the entire map.
+	 */
+	public applyLargeMapProtection(
+		sourcePath: string,
+		protection: MindMapLargeMapProtection,
+	): boolean {
+		const previous = this.largeMapGuard;
+		if (protection.level === "normal") {
+			if (previous?.sourcePath !== sourcePath) {
+				return false;
+			}
+			if (
+				previous.appliedVisibleDepthLimit !== null &&
+				this.visibleDepthLimit === previous.appliedVisibleDepthLimit
+			) {
+				this.visibleDepthLimit = null;
+				this.viewport = null;
+			}
+			this.largeMapGuard = null;
+			return true;
+		}
+
+		const sameSource = previous?.sourcePath === sourcePath;
+		const fullMapConfirmed =
+			previous !== null && sameSource && previous.fullMapConfirmed;
+		const mayReplaceAutoDepth =
+			previous !== null &&
+			sameSource &&
+			!fullMapConfirmed &&
+			previous.appliedVisibleDepthLimit !== null &&
+			this.visibleDepthLimit === previous.appliedVisibleDepthLimit;
+		const shouldApplyInitialDepth =
+			!fullMapConfirmed &&
+			protection.initialVisibleDepthLimit !== null &&
+			((!sameSource && this.visibleDepthLimit === null) ||
+				(mayReplaceAutoDepth &&
+					previous?.appliedVisibleDepthLimit !==
+						protection.initialVisibleDepthLimit));
+		this.largeMapGuard = {
+			sourcePath,
+			protection,
+			fullMapConfirmed,
+			appliedVisibleDepthLimit:
+				shouldApplyInitialDepth
+					? protection.initialVisibleDepthLimit
+					: previous?.appliedVisibleDepthLimit ?? null,
+		};
+
+		if (!shouldApplyInitialDepth) {
+			return false;
+		}
+
+		this.visibleDepthLimit = protection.initialVisibleDepthLimit;
+		this.viewport = null;
+		return true;
+	}
+
+	/** Explicitly opts this one tab into rendering all nodes for its source. */
+	public confirmLargeMapFullRender(sourcePath: string): boolean {
+		const guard = this.largeMapGuard;
+		if (
+			guard === null ||
+			guard.sourcePath !== sourcePath ||
+			!guard.protection.requiresExplicitFullRender ||
+			guard.fullMapConfirmed
+		) {
+			return false;
+		}
+		this.largeMapGuard = {
+			...guard,
+			fullMapConfirmed: true,
+			appliedVisibleDepthLimit: null,
+		};
+		if (this.visibleDepthLimit === null) {
+			return true;
+		}
+		this.visibleDepthLimit = null;
+		this.viewport = null;
+		return true;
+	}
+
 	public resetAll(): void {
 		this.resetInteraction();
 		this.clearPresentationOverrides();
@@ -141,6 +253,7 @@ export class MindMapViewSession {
 		this.hoveredNodeId = null;
 		this.focusRootNodeId = null;
 		this.visibleDepthLimit = null;
+		this.largeMapGuard = null;
 		this.selectedDecorationId = null;
 		this.minimapVisible = false;
 		this.viewport = null;
@@ -288,7 +401,16 @@ export class MindMapViewSession {
 				focusIndex < 0 ||
 				path.length - 1 - focusIndex > this.visibleDepthLimit
 			) {
-				this.visibleDepthLimit = null;
+				if (this.hasUnconfirmedLargeMapGuard()) {
+					// Searching or navigating to a hidden topic must not implicitly
+					// turn a safe large-map projection into a full-map render. Focus
+					// the requested branch instead; breadcrumbs still let the user
+					// return without losing the tab-local protection.
+					this.focusRootNodeId = nodeId;
+					this.viewport = null;
+				} else {
+					this.visibleDepthLimit = null;
+				}
 			}
 		}
 		this.setSelection(new Set([nodeId]), nodeId, nodeId);
@@ -390,6 +512,13 @@ export class MindMapViewSession {
 		) {
 			this.selectedDecorationId = null;
 		}
+	}
+
+	private hasUnconfirmedLargeMapGuard(): boolean {
+		return (
+			this.largeMapGuard?.protection.requiresExplicitFullRender === true &&
+			!this.largeMapGuard.fullMapConfirmed
+		);
 	}
 
 }

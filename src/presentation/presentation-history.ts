@@ -1,17 +1,82 @@
+import type { MindMapDocument } from "../core/model";
+import type {
+	ObMindTranslationKey,
+	ObMindTranslationValues,
+} from "../i18n/i18n";
+
 export const DEFAULT_PRESENTATION_HISTORY_LIMIT = 50;
 export const DEFAULT_PRESENTATION_HISTORY_DOCUMENT_LIMIT = 20;
 
 export type MindMapPresentationHistoryDirection = "undo" | "redo";
 
+/**
+ * A stable, locale-independent description of one visual operation.
+ *
+ * History is retained while the user may switch the global MindBraid language,
+ * so it must never retain a translated label from the language that happened
+ * to be active when the operation was committed.
+ */
+export interface MindMapPresentationHistoryAction {
+	readonly translationKey: ObMindTranslationKey;
+	readonly values: ObMindTranslationValues;
+}
+
+export function createMindMapPresentationHistoryAction(
+	translationKey: ObMindTranslationKey,
+	values: ObMindTranslationValues = {},
+): MindMapPresentationHistoryAction {
+	return {
+		translationKey,
+		values: { ...values },
+	};
+}
+
 export interface MindMapPresentationHistoryEntry<TSnapshot> {
 	readonly before: TSnapshot;
 	readonly after: TSnapshot;
-	readonly label: string;
+	readonly action: MindMapPresentationHistoryAction;
 }
 
 export interface MindMapPresentationHistoryState<TSnapshot> {
 	readonly undo: readonly MindMapPresentationHistoryEntry<TSnapshot>[];
 	readonly redo: readonly MindMapPresentationHistoryEntry<TSnapshot>[];
+}
+
+/**
+ * Snapshot-free state exposed to replaceable frontends.
+ *
+ * Actions identify the next visual operation in each direction without
+ * freezing its language. A frontend translates the action in its current
+ * locale and keeps visual history distinct from Markdown source history.
+ */
+export interface MindMapPresentationHistoryAvailability {
+	readonly hasUndoEntry: boolean;
+	readonly hasRedoEntry: boolean;
+	readonly undoAction: MindMapPresentationHistoryAction | null;
+	readonly redoAction: MindMapPresentationHistoryAction | null;
+}
+
+export function createMindMapPresentationHistoryAvailability(): MindMapPresentationHistoryAvailability {
+	return {
+		hasUndoEntry: false,
+		hasRedoEntry: false,
+		undoAction: null,
+		redoAction: null,
+	};
+}
+
+/**
+ * History restoration may only bind locators using the exact Markdown revision
+ * that is authoritative immediately before the annotation write.
+ */
+export function isMindMapPresentationHistorySourceCurrent(
+	expected: MindMapDocument,
+	authoritative: MindMapDocument,
+): boolean {
+	return (
+		expected.root.source.path === authoritative.root.source.path &&
+		expected.sourceRevision === authoritative.sourceRevision
+	);
 }
 
 export function createMindMapPresentationHistoryState<
@@ -74,6 +139,19 @@ export class MindMapPresentationHistory<TSnapshot> {
 		};
 	}
 
+	public getAvailability(): MindMapPresentationHistoryAvailability {
+		const undo = this.undoEntries.at(-1);
+		const redo = this.redoEntries.at(-1);
+		return {
+			hasUndoEntry: undo !== undefined,
+			hasRedoEntry: redo !== undefined,
+			undoAction:
+				undo === undefined ? null : cloneMindMapPresentationHistoryAction(undo.action),
+			redoAction:
+				redo === undefined ? null : cloneMindMapPresentationHistoryAction(redo.action),
+		};
+	}
+
 	public clear(): void {
 		this.undoEntries = [];
 		this.redoEntries = [];
@@ -82,15 +160,26 @@ export class MindMapPresentationHistory<TSnapshot> {
 	private cloneEntry(
 		entry: MindMapPresentationHistoryEntry<TSnapshot>,
 	): MindMapPresentationHistoryEntry<TSnapshot> {
-		if (entry.label.trim().length === 0) {
-			throw new TypeError("Presentation history entries require a label.");
-		}
 		return {
 			before: this.clone(entry.before),
 			after: this.clone(entry.after),
-			label: entry.label,
+			action: cloneMindMapPresentationHistoryAction(entry.action),
 		};
 	}
+}
+
+function cloneMindMapPresentationHistoryAction(
+	action: MindMapPresentationHistoryAction,
+): MindMapPresentationHistoryAction {
+	if (action.translationKey.trim().length === 0) {
+		throw new TypeError(
+			"Presentation history actions require a translation key.",
+		);
+	}
+	return createMindMapPresentationHistoryAction(
+		action.translationKey,
+		action.values,
+	);
 }
 
 /**

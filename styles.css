@@ -591,19 +591,35 @@
 }
 
 .obmind-view .obmind-sidebar-description {
-  margin-top: 2px;
-  overflow: hidden;
-  color: var(--obmind-ui-text-muted);
-  font-size: 11px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+	margin-top: 2px;
+	overflow: hidden;
+	color: var(--obmind-ui-text-muted);
+	font-size: 11px;
+	line-height: 1.35;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
+.obmind-view .obmind-sidebar-header-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 2px;
+	border: 1px solid
+		color-mix(in srgb, var(--obmind-floating-border) 72%, transparent);
+	border-radius: 11px;
+	background: color-mix(
+		in srgb,
+		var(--obmind-ui-background-secondary) 74%,
+		transparent
+	);
+}
+
+.obmind-view .obmind-sidebar-history-button,
 .obmind-view .obmind-sidebar-close-button {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
+	width: 28px;
+	height: 28px;
+	border-radius: 9px;
 }
 
 .obmind-view .obmind-sidebar-tabs {
@@ -2695,7 +2711,6 @@
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  will-change: transform;
 }
 
 .obmind-view .obmind-renderer-edges {
@@ -3909,6 +3924,73 @@
     0 4px 16px color-mix(in srgb, var(--obmind-ui-text-normal) 10%, transparent),
     0 1px 4px color-mix(in srgb, var(--obmind-ui-text-normal) 6%, transparent);
   pointer-events: none;
+}
+
+.obmind-view .obmind-large-map-notice {
+  z-index: 6;
+  position: absolute;
+  bottom: var(--size-4-3);
+  left: var(--size-4-3);
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  max-width: min(560px, calc(100% - var(--size-4-6)));
+  padding: var(--size-4-2) var(--size-4-2) var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--obmind-ui-background-modifier-border);
+  border-left: 3px solid var(--obmind-ui-interactive-accent);
+  border-radius: 10px;
+  color: var(--obmind-ui-text-normal);
+  background: color-mix(
+    in srgb,
+    var(--obmind-ui-background-secondary) 94%,
+    transparent
+  );
+  box-shadow:
+    0 5px 18px color-mix(in srgb, var(--obmind-ui-text-normal) 11%, transparent),
+    0 1px 4px color-mix(in srgb, var(--obmind-ui-text-normal) 7%, transparent);
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-normal);
+}
+
+.obmind-view .obmind-large-map-notice-message {
+  min-width: 0;
+}
+
+.obmind-view .obmind-large-map-notice-action {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--obmind-ui-interactive-accent) 54%,
+    var(--obmind-ui-background-modifier-border)
+  );
+  border-radius: 7px;
+  color: var(--obmind-ui-text-on-accent);
+  background: var(--obmind-ui-interactive-accent);
+  box-shadow: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+}
+
+.obmind-view .obmind-large-map-notice-action:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.obmind-view .obmind-large-map-notice-action:focus-visible {
+  outline: 2px solid var(--obmind-ui-background-modifier-border-focus);
+  outline-offset: 2px;
+}
+
+.obmind-view .obmind-large-map-notice-action:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.obmind-view .obmind-large-map-notice[hidden] {
+  display: none;
 }
 
 .obmind-view .obmind-status[hidden] {

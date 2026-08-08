@@ -34,6 +34,50 @@ afterEach(() => {
 });
 
 describe("DOM/SVG renderer appearance", () => {
+	it("keeps topic text out of forced 3-D compositing layers", () => {
+		const mindMap = parseMarkdown("# Crisp topic", "Map.md", "Map");
+		const topic = mindMap.root.children[0];
+		if (topic === undefined) {
+			throw new Error("Expected a topic for the compositing fixture.");
+		}
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: () => undefined,
+		});
+		renderer.mount(container);
+		renderer.render({
+			root: mindMap.root,
+			sourceRevision: mindMap.sourceRevision,
+			language: "zh-CN",
+			colorScheme: "light",
+			presentation: createDefaultMindMapPresentation("left-to-right"),
+			interaction: createDefaultMindMapInteractionState(),
+			topicCommandAvailability: {
+				hasInternalClipboard: false,
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+			},
+		});
+
+		const scene = container.querySelector<HTMLElement>(
+			".obmind-renderer-scene",
+		);
+		const element = container.querySelector<HTMLElement>(
+			`[data-obmind-node-id="${topic.id}"]`,
+		);
+		expect(scene?.style.transform).toContain("translate(");
+		expect(scene?.style.transform).not.toContain("translate3d");
+		expect(element?.style.left).not.toBe("");
+		expect(element?.style.top).not.toBe("");
+		expect(element?.style.transform).toBe("");
+
+		renderer.destroy();
+	});
+
 	it("renders Atlas Cards with branch-colored first topics and surface subtopics", () => {
 		const mindMap = parseMarkdown(
 			"# Strategy\n## Research\n### Notes",

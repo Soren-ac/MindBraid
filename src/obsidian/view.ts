@@ -68,7 +68,13 @@ import {
 	type PresentationGestureState,
 } from "../presentation/presentation-gesture";
 import { cloneMindMapPresentation } from "../presentation/presentation-snapshot";
+import {
+	createMindMapPresentationHistoryAction,
+	type MindMapPresentationHistoryAction,
+	type MindMapPresentationHistoryAvailability,
+} from "../presentation/presentation-history";
 import { MindMapViewSession } from "../application/session";
+import { resolveMindMapLargeMapProtection } from "../layout/large-map-policy";
 import {
 	canActivateMindMapTopicCommandResult,
 	type MindMapTopicCommandRequest,
@@ -95,7 +101,11 @@ export interface MindMapDocumentStatePersistenceRequest {
 	 */
 	readonly previousPresentation?: MindMapPresentation;
 	readonly interaction: MindMapInteractionState;
-	readonly label: string;
+	/**
+	 * Stable history metadata for document-presentation fields. Interaction-only
+	 * persistence deliberately omits this because it is not presentation history.
+	 */
+	readonly presentationHistoryAction?: MindMapPresentationHistoryAction;
 	readonly fields: readonly DocumentAnnotationField[];
 	readonly previousCollapsedNodeIds?: ReadonlySet<string>;
 }
@@ -104,7 +114,7 @@ interface ActivePresentationGesture {
 	readonly state: PresentationGestureState<MindMapPresentation>;
 	readonly previousViewOverride: MindMapPresentation | null;
 	readonly previousViewport: MindMapViewportState | null;
-	readonly label: string;
+	readonly action: MindMapPresentationHistoryAction;
 }
 
 interface DocumentPersistenceBaseline {
@@ -130,6 +140,9 @@ export interface MindMapViewHost {
 	getMindMapTopicCommandAvailability(
 		source: MindMapTopicCommandAvailabilitySource | null,
 	): MindMapTopicCommandAvailability;
+	getMindMapPresentationHistoryAvailability(
+		path: string | null,
+	): MindMapPresentationHistoryAvailability;
 	createMindMapPresentation(state: MindMapViewState): MindMapPresentation;
 	hydrateMindMapDocumentState(
 		document: MindMapDocument,
@@ -458,6 +471,10 @@ export class MindMapView extends ItemView {
 			hydrated.viewport,
 			viewportPolicy,
 		);
+		this.session.applyLargeMapProtection(
+			state.source.path,
+			resolveMindMapLargeMapProtection(state.document.root),
+		);
 	}
 
 	private renderCurrentFrame(): void {
@@ -473,6 +490,10 @@ export class MindMapView extends ItemView {
 			colorScheme: this.resolveColorScheme(),
 			presentation: this.getEffectivePresentation(state),
 			interaction: this.session.getInteractionState(),
+			largeMapGuard:
+				state.status === "ready"
+					? this.session.getLargeMapGuardState(state.source.path)
+					: null,
 			capabilities: this.host.getMindMapFrontendCapabilities(),
 			topicCommandAvailability:
 					this.host.getMindMapTopicCommandAvailability(
@@ -483,6 +504,10 @@ export class MindMapView extends ItemView {
 										state.document.sourceRevision,
 								}
 							: null,
+				),
+			presentationHistoryAvailability:
+				this.host.getMindMapPresentationHistoryAvailability(
+					state.status === "ready" ? state.source.path : null,
 				),
 		});
 	}
@@ -717,7 +742,9 @@ export class MindMapView extends ItemView {
 				await this.applySemanticPresentationPatch(
 					createMindMapPresentationPatch(current, event.presentation),
 					event.scope,
-					this.t("history.replace-presentation"),
+					createMindMapPresentationHistoryAction(
+						"history.replace-presentation",
+					),
 				);
 				return;
 			}
@@ -725,14 +752,14 @@ export class MindMapView extends ItemView {
 				await this.applySemanticPresentationPatch(
 					event.patch,
 					event.scope,
-					event.label,
+					event.action,
 				);
 				return;
 			case "preview-presentation-patch":
 				this.previewPresentationPatch(
 					event.gestureId,
 					event.patch,
-					event.label,
+					event.action,
 				);
 				return;
 			case "commit-presentation-preview":
@@ -761,14 +788,18 @@ export class MindMapView extends ItemView {
 					await this.applySemanticPresentationPatch(
 						{ styleId: result.selectedStyleId },
 						"document",
-						this.t("history.create-custom-style"),
+						createMindMapPresentationHistoryAction(
+							"history.create-custom-style",
+						),
 					);
 				}
 				if (result.selectedPaletteId !== undefined) {
 					await this.applySemanticPresentationPatch(
 						{ paletteId: result.selectedPaletteId },
 						"document",
-						this.t("history.create-custom-palette"),
+						createMindMapPresentationHistoryAction(
+							"history.create-custom-palette",
+						),
 					);
 				}
 				return;
@@ -792,11 +823,40 @@ export class MindMapView extends ItemView {
 				}
 				return;
 			}
-			case "change-visible-depth":
+			case "change-visible-depth": {
+				const state = this.currentState;
+				const guard =
+					state?.status === "ready"
+						? this.session.getLargeMapGuardState(state.source.path)
+						: null;
+				if (
+					event.depth === null &&
+					state?.status === "ready" &&
+					guard?.protection.requiresExplicitFullRender === true &&
+					!guard.fullMapConfirmed
+				) {
+					if (this.session.confirmLargeMapFullRender(state.source.path)) {
+						this.renderCurrentFrame();
+					}
+					return;
+				}
 				if (this.session.setVisibleDepthLimit(event.depth)) {
 					this.renderCurrentFrame();
 				}
 				return;
+			}
+			case "show-full-large-map": {
+				const state = this.currentState;
+				if (
+					state?.status === "ready" &&
+					this.session.confirmLargeMapFullRender(
+						state.source.path,
+					)
+				) {
+					this.renderCurrentFrame();
+				}
+				return;
+			}
 			case "change-minimap-visibility":
 				if (this.session.setMinimapVisible(event.visible)) {
 					this.renderCurrentFrame();
@@ -930,7 +990,9 @@ export class MindMapView extends ItemView {
 		scope: Exclude<MindMapPresentationScope, "default">,
 		fields: readonly DocumentAnnotationField[],
 		viewportPolicy: "clear" | "preserve" = "clear",
-		label = this.t("history.change-presentation"),
+		action = createMindMapPresentationHistoryAction(
+			"history.change-presentation",
+		),
 	): Promise<void> {
 		const validated = this.validatePresentationChange(
 			presentation,
@@ -955,9 +1017,9 @@ export class MindMapView extends ItemView {
 		if (scope === "document") {
 			try {
 				await this.persistCurrentDocumentState(
-					label,
 					fields,
 					{ previousPresentation: previousDocumentPresentation },
+					action,
 				);
 			} catch (error: unknown) {
 				this.session.setDocumentPresentationOverride(
@@ -974,7 +1036,7 @@ export class MindMapView extends ItemView {
 	private async applySemanticPresentationPatch(
 		patch: MindMapPresentationPatch,
 		scope: Exclude<MindMapPresentationScope, "default">,
-		label: string,
+		action: MindMapPresentationHistoryAction,
 	): Promise<void> {
 		const changed = applyMindMapPresentationPatch(
 			this.getPresentationForScope(scope),
@@ -987,14 +1049,14 @@ export class MindMapView extends ItemView {
 			scope,
 			persistence.fields,
 			persistence.viewportPolicy,
-			label,
+			action,
 		);
 	}
 
 	private previewPresentationPatch(
 		gestureId: string,
 		patch: MindMapPresentationPatch,
-		label: string,
+		action: MindMapPresentationHistoryAction,
 	): void {
 		if (
 			this.activePresentationGesture !== null &&
@@ -1017,7 +1079,7 @@ export class MindMapView extends ItemView {
 					this.session.getViewPresentationOverride(),
 				previousViewport:
 					this.session.getInteractionState().viewport,
-				label,
+				action,
 			};
 		const state = updatePresentationGesture(
 			active.state,
@@ -1025,7 +1087,7 @@ export class MindMapView extends ItemView {
 			patch,
 			adapter,
 		);
-		this.activePresentationGesture = { ...active, state, label };
+		this.activePresentationGesture = { ...active, state, action };
 		if (
 			describePresentationPatchPersistence(patch).viewportPolicy ===
 			"clear"
@@ -1077,7 +1139,7 @@ export class MindMapView extends ItemView {
 			"document",
 			persistence.fields,
 			persistence.viewportPolicy,
-			active.label,
+			active.action,
 		);
 	}
 
@@ -1182,7 +1244,6 @@ export class MindMapView extends ItemView {
 		}
 		this.renderCurrentFrame();
 		await this.persistCurrentDocumentState(
-			this.t("history.toggle-branch"),
 			["collapsed"],
 			{ previousCollapsedNodeIds },
 		);
@@ -1204,7 +1265,6 @@ export class MindMapView extends ItemView {
 			nodeId,
 		});
 		await this.persistCurrentDocumentState(
-			this.t("history.reveal-topic"),
 			["collapsed"],
 			{ previousCollapsedNodeIds },
 		);
@@ -1599,9 +1659,7 @@ export class MindMapView extends ItemView {
 		this.session.expandAll();
 		this.renderCurrentFrame();
 		this.frontend?.execute({ type: "fit-view" });
-		await this.persistCurrentDocumentState(this.t("history.expand-all"), [
-			"collapsed",
-		]);
+		await this.persistCurrentDocumentState(["collapsed"]);
 	}
 
 	private async collapseAll(): Promise<void> {
@@ -1612,15 +1670,13 @@ export class MindMapView extends ItemView {
 		this.session.collapseAll(this.currentState.document.root);
 		this.renderCurrentFrame();
 		this.frontend?.execute({ type: "fit-view" });
-		await this.persistCurrentDocumentState(this.t("history.collapse-all"), [
-			"collapsed",
-		]);
+		await this.persistCurrentDocumentState(["collapsed"]);
 	}
 
 	private async persistCurrentDocumentState(
-		label: string,
 		fields: readonly DocumentAnnotationField[],
 		baseline: DocumentPersistenceBaseline = {},
+		presentationHistoryAction?: MindMapPresentationHistoryAction,
 	): Promise<void> {
 		const state = this.currentState;
 		if (state?.status !== "ready") {
@@ -1629,9 +1685,9 @@ export class MindMapView extends ItemView {
 		await this.host.persistMindMapDocumentState(
 			this.createDocumentPersistenceRequest(
 				state,
-				label,
 				fields,
 				baseline,
+				presentationHistoryAction,
 			),
 		);
 	}
@@ -1651,9 +1707,9 @@ export class MindMapView extends ItemView {
 
 	private createDocumentPersistenceRequest(
 		state: Extract<MindMapViewState, { readonly status: "ready" }>,
-		label: string,
 		fields: readonly DocumentAnnotationField[],
 		baseline: DocumentPersistenceBaseline = {},
+		presentationHistoryAction?: MindMapPresentationHistoryAction,
 	): MindMapDocumentStatePersistenceRequest {
 		const basePresentation = this.host.createMindMapPresentation(state);
 		return {
@@ -1663,8 +1719,12 @@ export class MindMapView extends ItemView {
 				this.session.getDocumentPresentationOverride() ??
 				basePresentation,
 			interaction: this.session.getInteractionState(),
-			label,
 			fields: [...fields],
+			...(presentationHistoryAction === undefined
+				? {}
+				: {
+						presentationHistoryAction,
+					}),
 			...(baseline.previousPresentation === undefined
 				? {}
 				: {
@@ -1696,7 +1756,6 @@ export class MindMapView extends ItemView {
 		}
 		const request = this.createDocumentPersistenceRequest(
 			state,
-			this.t("history.change-viewport"),
 			["viewport"],
 		);
 		const timer = timerWindow.setTimeout(() => {

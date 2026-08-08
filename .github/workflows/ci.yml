@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run repository checks
+        run: npm run check
+
+      - name: Ensure generated artifacts are committed
+        run: git diff --exit-code -- main.js manifest.json styles.css package-lock.json
+
+      - name: Install Chromium for visual regression
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser visual regression
+        run: npm run test:visual
+
+      - name: Check whitespace errors
+        run: git diff --check

@@ -19,6 +19,9 @@ import {
 	type ImportedMindMapWorkbook,
 	type MindMapImportDiagnostic,
 } from "../import/types";
+import {
+	resolveMindMapLargeMapProtectionLevel,
+} from "../layout/large-map-policy";
 
 export interface MindMapImportFilePicker {
 	readonly result: Promise<File | null>;
@@ -292,6 +295,15 @@ export class MindMapImportModal extends Modal {
 			path: this.options.resolveDestinationPath(safeBasename),
 		});
 		this.diagnosticsEl.empty();
+		const largeMapLevel = resolveMindMapLargeMapProtectionLevel(topicCount);
+		if (largeMapLevel !== "normal") {
+			this.diagnosticsEl.createDiv({
+				cls: "obmind-import-diagnostic obmind-import-diagnostic-warning",
+				text: this.t("import-modal.large-map-warning", {
+					count: this.translator.formatNumber(topicCount),
+				}),
+			});
+		}
 		if (plan.diagnostics.length === 0) {
 			this.diagnosticsEl.createDiv({
 				cls: "obmind-import-diagnostic obmind-import-diagnostic-info",

@@ -2095,7 +2095,14 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 				nodePresentation,
 				input.presentation,
 			);
-			element.style.transform = `translate3d(${positioned.x}px, ${positioned.y}px, 0)`;
+			// Keep topic elements in the normal 2-D layout tree. A 3-D transform
+			// promotes every topic to its own compositing layer in Chromium. When
+			// the scene is zoomed, those layers can be rasterized at a fractional
+			// scale and make text look soft until a hover invalidates the layer.
+			// The scene transform below still handles pan/zoom for the whole map.
+			element.style.left = `${positioned.x}px`;
+			element.style.top = `${positioned.y}px`;
+			element.style.removeProperty("transform");
 		}
 
 		for (const [id, element] of this.nodeElements) {
@@ -3653,7 +3660,11 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 			return;
 		}
 		const { x, y, scale } = this.transform;
-		this.scene.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+		// Use a 2-D transform and do not keep the scene in a permanent
+		// `will-change: transform` layer. Persistent 3-D promotion is a common
+		// source of blurry DOM text in Chromium/Electron; the compositor can
+		// still optimize this transform while panning or zooming.
+		this.scene.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
 		this.refreshSceneCulling();
 	}
 
