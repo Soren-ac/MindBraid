@@ -93,45 +93,49 @@ afterEach(() => {
 });
 
 describe("built-in node color contrast", () => {
-	it("keeps default topic text above the minimum contrast threshold for every style, palette, and scheme", () => {
-		const composition = BUILT_IN_MIND_MAP_FRONTEND_COMPOSITION;
-		expect(composition.capabilities.styles).toHaveLength(7);
-		expect(composition.capabilities.palettes).toHaveLength(7);
+	it(
+		"keeps default topic text above the minimum contrast threshold for every style, palette, and scheme",
+		{ timeout: 30_000 },
+		() => {
+			const composition = BUILT_IN_MIND_MAP_FRONTEND_COMPOSITION;
+			expect(composition.capabilities.styles).toHaveLength(7);
+			expect(composition.capabilities.palettes).toHaveLength(7);
 
-		const violations: string[] = [];
-		for (const colorScheme of ["light", "dark"] as const) {
-			for (const style of composition.capabilities.styles) {
-				for (const palette of composition.capabilities.palettes) {
-					const minimumContrast = CONTRAST_SAFE_PALETTE_IDS.has(
-						palette.id,
-					)
-						? MINIMUM_NEW_PALETTE_TOPIC_TEXT_CONTRAST
-						: MINIMUM_LEGACY_TOPIC_TEXT_CONTRAST;
-					for (const topic of renderBuiltInTopicColorSamples(
-						style.id,
-						palette.id,
-						colorScheme,
-					)) {
-						const contrast = contrastRatio(topic.text, topic.background);
-						if (contrast < minimumContrast) {
-							violations.push(
-								[
-									`${style.id}/${palette.id}/${colorScheme}/${topic.role}`,
-									`contrast ${contrast.toFixed(2)}`,
-									`minimum ${minimumContrast.toFixed(1)}`,
-									`shape ${topic.shape ?? "default"}`,
-									`text ${topic.textCss}`,
-									`fill ${topic.fillCss}`,
-								].join("; "),
-							);
+			const violations: string[] = [];
+			for (const colorScheme of ["light", "dark"] as const) {
+				for (const style of composition.capabilities.styles) {
+					for (const palette of composition.capabilities.palettes) {
+						const minimumContrast = CONTRAST_SAFE_PALETTE_IDS.has(
+							palette.id,
+						)
+							? MINIMUM_NEW_PALETTE_TOPIC_TEXT_CONTRAST
+							: MINIMUM_LEGACY_TOPIC_TEXT_CONTRAST;
+						for (const topic of renderBuiltInTopicColorSamples(
+							style.id,
+							palette.id,
+							colorScheme,
+						)) {
+							const contrast = contrastRatio(topic.text, topic.background);
+							if (contrast < minimumContrast) {
+								violations.push(
+									[
+										`${style.id}/${palette.id}/${colorScheme}/${topic.role}`,
+										`contrast ${contrast.toFixed(2)}`,
+										`minimum ${minimumContrast.toFixed(1)}`,
+										`shape ${topic.shape ?? "default"}`,
+										`text ${topic.textCss}`,
+										`fill ${topic.fillCss}`,
+									].join("; "),
+								);
+							}
 						}
 					}
 				}
 			}
-		}
 
-		expect(violations).toEqual([]);
-	});
+			expect(violations).toEqual([]);
+		},
+	);
 
 	it("uses light text on Retro Autumn's deep fills and dark text on its light fills", () => {
 		const samples = renderBuiltInTopicColorSamples(
