@@ -5832,12 +5832,29 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 		}
 
 		event.preventDefault();
+
+		// Browsers report a trackpad pinch-to-zoom gesture as a wheel event
+		// with `ctrlKey` forced true, independent of any physical modifier key;
+		// an explicit Ctrl or Cmd/Meta held while scrolling requests the same
+		// zoom intent from a plain mouse wheel. Every other wheel event (a
+		// plain two-finger trackpad swipe or an ordinary mouse wheel) pans,
+		// matching the convention used by Obsidian's own Canvas and most other
+		// canvas apps.
+		if (!event.ctrlKey && !event.metaKey) {
+			this.panByWheel(event, surface);
+			return;
+		}
+
 		const rect = surface.getBoundingClientRect();
 		const pointerX = event.clientX - rect.left;
 		const pointerY = event.clientY - rect.top;
 		const worldX = (pointerX - this.transform.x) / this.transform.scale;
 		const worldY = (pointerY - this.transform.y) / this.transform.scale;
-		const normalizedDelta = normalizeWheelDelta(event, surface.clientHeight);
+		const normalizedDelta = normalizeWheelAxisDelta(
+			event.deltaY,
+			event.deltaMode,
+			surface.clientHeight,
+		);
 		const nextScale = clamp(
 			this.transform.scale * Math.exp(-normalizedDelta * 0.0015),
 			MIN_SCALE,
@@ -5856,6 +5873,37 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 		this.applyTransform();
 		this.notifyViewportChanged("zoom");
 	};
+
+	/**
+	 * Pans from a plain wheel/trackpad-swipe gesture. A physical mouse wheel
+	 * only ever reports a vertical delta, so holding Shift remaps that
+	 * vertical delta onto the horizontal axis instead — the same convention
+	 * Obsidian's native Canvas uses for horizontal panning without a
+	 * trackpad.
+	 */
+	private panByWheel(event: WheelEvent, surface: HTMLElement): void {
+		const deltaX = normalizeWheelAxisDelta(
+			event.deltaX,
+			event.deltaMode,
+			surface.clientWidth,
+		);
+		const deltaY = normalizeWheelAxisDelta(
+			event.deltaY,
+			event.deltaMode,
+			surface.clientHeight,
+		);
+		const remapToHorizontal = event.shiftKey && deltaX === 0;
+		const panX = remapToHorizontal ? deltaY : deltaX;
+		const panY = remapToHorizontal ? 0 : deltaY;
+		if (panX === 0 && panY === 0) {
+			return;
+		}
+
+		this.transform.x -= panX;
+		this.transform.y -= panY;
+		this.applyTransform();
+		this.notifyViewportChanged("pan");
+	}
 
 	private readonly handleResize = (): void => {
 		const surface = this.surface;
@@ -9421,14 +9469,18 @@ function clearCssPropertiesWithPrefix(
 	}
 }
 
-function normalizeWheelDelta(event: WheelEvent, viewportHeight: number): number {
-	if (event.deltaMode === 1) {
-		return event.deltaY * 16;
+function normalizeWheelAxisDelta(
+	delta: number,
+	deltaMode: number,
+	viewportSize: number,
+): number {
+	if (deltaMode === 1) {
+		return delta * 16;
 	}
-	if (event.deltaMode === 2) {
-		return event.deltaY * Math.max(1, viewportHeight);
+	if (deltaMode === 2) {
+		return delta * Math.max(1, viewportSize);
 	}
-	return event.deltaY;
+	return delta;
 }
 
 function isElement(target: EventTarget | null): target is Element {

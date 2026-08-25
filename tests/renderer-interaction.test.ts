@@ -553,6 +553,180 @@ describe("DOM/SVG renderer canvas focus", () => {
 	});
 });
 
+describe("DOM/SVG renderer wheel gestures", () => {
+	function mountWheelFixture(): {
+		renderer: DomSvgMindMapRenderer;
+		surface: HTMLElement;
+		interactions: MindMapInteractionEvent[];
+	} {
+		const mindMap = parseMarkdown("# Topic", "Map.md", "Map");
+		const interactions: MindMapInteractionEvent[] = [];
+		const container = document.createElementNS(
+			"http://www.w3.org/1999/xhtml",
+			"div",
+		) as HTMLDivElement;
+		document.body.append(container);
+		const renderer = new DomSvgMindMapRenderer({
+			interaction: (event) => interactions.push(event),
+		});
+		renderer.mount(container);
+		renderer.setViewActive(true);
+		renderer.render({
+			root: mindMap.root,
+			sourceRevision: mindMap.sourceRevision,
+			language: "en",
+			colorScheme: "light",
+			presentation: createDefaultMindMapPresentation("left-to-right"),
+			interaction: createDefaultMindMapInteractionState(),
+			topicCommandAvailability: {
+				hasInternalClipboard: false,
+				hasUndoEntry: false,
+				hasRedoEntry: false,
+			},
+		});
+		const surface = container.querySelector<HTMLElement>(
+			".obmind-renderer-surface",
+		);
+		if (surface === null) {
+			throw new Error("Renderer fixture is missing its canvas.");
+		}
+		Object.defineProperties(surface, {
+			clientWidth: { configurable: true, value: 800 },
+			clientHeight: { configurable: true, value: 600 },
+			getBoundingClientRect: {
+				configurable: true,
+				value: () => new DOMRect(0, 0, 800, 600),
+			},
+		});
+		return { renderer, surface, interactions };
+	}
+
+	/**
+	 * happy-dom's `WheelEvent` extends `UIEvent` directly rather than
+	 * `MouseEvent`, so its constructor silently drops `ctrlKey`, `shiftKey`,
+	 * `clientX`, and `clientY` even though the real DOM spec (and the
+	 * ambient TypeScript lib this file compiles against) inherits them from
+	 * `MouseEvent`. Layer them onto the instance directly so these tests
+	 * exercise the same modifier/pointer-position combinations a real
+	 * browser would deliver.
+	 */
+	function createWheelEvent(init: {
+		deltaX?: number;
+		deltaY?: number;
+		deltaMode?: number;
+		ctrlKey?: boolean;
+		shiftKey?: boolean;
+		clientX?: number;
+		clientY?: number;
+	}): WheelEvent {
+		const event = new WheelEvent("wheel", {
+			bubbles: true,
+			cancelable: true,
+			deltaX: init.deltaX ?? 0,
+			deltaY: init.deltaY ?? 0,
+			deltaMode: init.deltaMode ?? 0,
+		});
+		Object.defineProperties(event, {
+			ctrlKey: { configurable: true, value: init.ctrlKey ?? false },
+			shiftKey: { configurable: true, value: init.shiftKey ?? false },
+			clientX: { configurable: true, value: init.clientX ?? 0 },
+			clientY: { configurable: true, value: init.clientY ?? 0 },
+		});
+		return event;
+	}
+
+	it("pans on a plain wheel/trackpad scroll instead of zooming", () => {
+		const { renderer, surface, interactions } = mountWheelFixture();
+		const before = renderer.getViewport();
+		if (before === null) {
+			throw new Error("Expected an initial viewport.");
+		}
+
+		surface.dispatchEvent(
+			createWheelEvent({
+				deltaX: 12,
+				deltaY: 24,
+				clientX: 400,
+				clientY: 300,
+			}),
+		);
+
+		const after = renderer.getViewport();
+		expect(after).not.toBeNull();
+		expect(after?.scale).toBe(before.scale);
+		expect(after?.centerX).not.toBe(before.centerX);
+		expect(after?.centerY).not.toBe(before.centerY);
+		const viewportChanges = interactions.filter(
+			(event) => event.type === "viewport-change",
+		);
+		expect(viewportChanges).toHaveLength(1);
+		expect(viewportChanges[0]).toMatchObject({ reason: "pan" });
+
+		renderer.destroy();
+	});
+
+	it("zooms on Ctrl/Cmd + wheel or a trackpad pinch gesture", () => {
+		const { renderer, surface, interactions } = mountWheelFixture();
+		const before = renderer.getViewport();
+		if (before === null) {
+			throw new Error("Expected an initial viewport.");
+		}
+
+		// A trackpad pinch is delivered as a wheel event with ctrlKey forced
+		// true by the browser; an explicit Ctrl/Cmd held while scrolling with
+		// a plain mouse wheel requests the same zoom intent.
+		surface.dispatchEvent(
+			createWheelEvent({
+				deltaY: -100,
+				ctrlKey: true,
+				clientX: 400,
+				clientY: 300,
+			}),
+		);
+
+		const after = renderer.getViewport();
+		expect(after).not.toBeNull();
+		expect(after?.scale).not.toBe(before.scale);
+		const viewportChanges = interactions.filter(
+			(event) => event.type === "viewport-change",
+		);
+		expect(viewportChanges).toHaveLength(1);
+		expect(viewportChanges[0]).toMatchObject({ reason: "zoom" });
+
+		renderer.destroy();
+	});
+
+	it("remaps a plain vertical wheel delta to horizontal pan when Shift is held", () => {
+		const { renderer, surface, interactions } = mountWheelFixture();
+		const before = renderer.getViewport();
+		if (before === null) {
+			throw new Error("Expected an initial viewport.");
+		}
+
+		surface.dispatchEvent(
+			createWheelEvent({
+				deltaX: 0,
+				deltaY: 40,
+				shiftKey: true,
+				clientX: 400,
+				clientY: 300,
+			}),
+		);
+
+		const after = renderer.getViewport();
+		expect(after).not.toBeNull();
+		expect(after?.scale).toBe(before.scale);
+		expect(after?.centerY).toBe(before.centerY);
+		expect(after?.centerX).not.toBe(before.centerX);
+		const viewportChanges = interactions.filter(
+			(event) => event.type === "viewport-change",
+		);
+		expect(viewportChanges[0]).toMatchObject({ reason: "pan" });
+
+		renderer.destroy();
+	});
+});
+
 describe("DOM/SVG renderer node links", () => {
 	it("renders only Vault-local links inside the topic and preserves source indexes", () => {
 		const mindMap = parseMarkdown(
