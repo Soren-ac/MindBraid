@@ -149,6 +149,7 @@ const BUILT_IN_MIND_MAP_FRONTEND_CAPABILITIES: MindMapFrontendCapabilities = {
     "rectangle",
     "pill",
     "ellipse",
+    "diamond",
     "underline",
     "none",
   ],

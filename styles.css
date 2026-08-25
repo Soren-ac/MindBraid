@@ -3663,6 +3663,51 @@
   background: transparent;
 }
 
+/*
+ * Diamond nodes use clip-path for the rhombus silhouette since border-radius
+ * cannot express angled edges. A ::before pseudo-element, inset by the
+ * negative border width and clipped to the same percentage-based polygon,
+ * paints a uniform-width border "frame" behind the clipped fill. Extra
+ * padding keeps topic text clear of the angled corners.
+ */
+.obmind-view
+  .obmind-node[data-obmind-node-shape="diamond"]
+  .obmind-node-content,
+.obmind-view
+  .obmind-node[data-obmind-node-shape="diamond"]
+  .obmind-node-editor {
+  position: relative;
+  border-color: transparent;
+  border-radius: 0;
+  /* stylelint-disable-next-line plugin/no-unsupported-browser-features -- polygon() clip-path has shipped in Chromium since M55; fully supported on this project's electron >= 30 target. */
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  padding: 14px 22px;
+}
+
+.obmind-view
+  .obmind-node[data-obmind-node-shape="diamond"]
+  .obmind-node-content::before,
+.obmind-view
+  .obmind-node[data-obmind-node-shape="diamond"]
+  .obmind-node-editor::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: calc(
+    var(
+        --obmind-node-border-width,
+        var(--obmind-theme-node-border-width, 1px)
+      ) * -1
+  );
+  /* stylelint-disable-next-line plugin/no-unsupported-browser-features -- polygon() clip-path has shipped in Chromium since M55; fully supported on this project's electron >= 30 target. */
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  background: var(
+    --obmind-node-stroke,
+    var(--obmind-theme-edge, var(--obmind-ui-text-muted))
+  );
+  pointer-events: none;
+}
+
 .obmind-view .obmind-node-toggle {
   position: absolute;
   z-index: 4;

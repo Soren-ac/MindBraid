@@ -1274,6 +1274,8 @@ function getNodeShapeLabel(
 			return translator.t("library.shape.pill");
 		case "ellipse":
 			return translator.t("library.shape.ellipse");
+		case "diamond":
+			return translator.t("library.shape.diamond");
 		case "underline":
 			return translator.t("library.shape.underline");
 		case "none":
