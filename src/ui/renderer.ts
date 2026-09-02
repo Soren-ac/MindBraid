@@ -163,6 +163,7 @@ import {
 	type MindMapExportEllipsePrimitive,
 	MindMapExportError,
 	type MindMapExportPaint,
+	type MindMapExportPathPrimitive,
 	type MindMapExportPrimitive,
 	type MindMapExportRectPrimitive,
 	type MindMapExportScene,
@@ -7141,6 +7142,7 @@ function resolveExportNodeShape(
 		case "rectangle":
 		case "pill":
 		case "ellipse":
+		case "diamond":
 		case "underline":
 		case "none":
 		case "rounded-rectangle":
@@ -7161,6 +7163,10 @@ function resolveHandDrawnNodeContourShape(
 			return shape;
 		case "none":
 		case "underline":
+		case "diamond":
+			// A rough hand-drawn contour is not implemented for diamond nodes
+			// yet; they render with a plain (non-sketched) outline for every
+			// style, including pencil-sketch.
 			return null;
 		case undefined:
 			return "rounded-rectangle";
@@ -7193,7 +7199,7 @@ function createExportNodeShapePrimitive(
 	stroke: string,
 	strokeWidth: number,
 	style: CSSStyleDeclaration,
-): MindMapExportRectPrimitive | MindMapExportEllipsePrimitive {
+): MindMapExportRectPrimitive | MindMapExportEllipsePrimitive | MindMapExportPathPrimitive {
 	if (shape === "ellipse") {
 		return {
 			kind: "ellipse",
@@ -7205,6 +7211,19 @@ function createExportNodeShapePrimitive(
 			fill,
 			stroke,
 			strokeWidth,
+		};
+	}
+	if (shape === "diamond") {
+		const centerX = x + width / 2;
+		const centerY = y + height / 2;
+		return {
+			kind: "path",
+			id: `${id}:shape`,
+			data: `M ${String(centerX)} ${String(y)} L ${String(x + width)} ${String(centerY)} L ${String(centerX)} ${String(y + height)} L ${String(x)} ${String(centerY)} Z`,
+			fill,
+			stroke,
+			strokeWidth,
+			lineJoin: "round",
 		};
 	}
 	const radius =

@@ -476,6 +476,7 @@ export type MindMapNodeShape =
   | "rectangle"
   | "pill"
   | "ellipse"
+  | "diamond"
   | "underline"
   | "none";
 

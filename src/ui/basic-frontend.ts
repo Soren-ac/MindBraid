@@ -8061,6 +8061,7 @@ function resolvePreviewContourShape(
 			return shape;
 		case "none":
 		case "underline":
+		case "diamond":
 			return null;
 	}
 }
@@ -8080,6 +8081,16 @@ function createPreviewNodeShape(
 		ellipse.setAttribute("rx", String(node.width / 2));
 		ellipse.setAttribute("ry", String(node.height / 2));
 		return ellipse;
+	}
+	if (node.shape === "diamond") {
+		const polygon = createPreviewSvgElement(ownerDocument, "polygon");
+		const centerX = x + node.width / 2;
+		const centerY = y + node.height / 2;
+		polygon.setAttribute(
+			"points",
+			`${String(centerX)},${String(y)} ${String(x + node.width)},${String(centerY)} ${String(centerX)},${String(y + node.height)} ${String(x)},${String(centerY)}`,
+		);
+		return polygon;
 	}
 	if (node.shape === "none") {
 		return null;
@@ -8668,6 +8679,7 @@ function getNodeShapeLabel(
 		rectangle: "frontend.nodeShape.rectangle",
 		pill: "frontend.nodeShape.pill",
 		ellipse: "frontend.nodeShape.ellipse",
+		diamond: "frontend.nodeShape.diamond",
 		underline: "frontend.nodeShape.underline",
 		none: "frontend.nodeShape.none",
 	};

@@ -44,6 +44,17 @@ describe("presentation patches", () => {
 		expect(current.nodes.size).toBe(0);
 	});
 
+	it("accepts the diamond node shape registered in built-in capabilities", () => {
+		const current = createDefaultMindMapPresentation("left-to-right");
+		expect(capabilities.nodeShapes).toContain("diamond");
+		const next = applyMindMapPresentationPatch(
+			current,
+			{ nodes: new Map([["node:1", { shape: "diamond" }]]) },
+			{ capabilities, nodeIds: new Set(["node:1"]) },
+		);
+		expect(next.nodes.get("node:1")).toMatchObject({ shape: "diamond" });
+	});
+
 	it("rejects unsupported capabilities, CSS-like colors, URLs, and unknown IDs", () => {
 		const current = createDefaultMindMapPresentation("left-to-right");
 		const context = {

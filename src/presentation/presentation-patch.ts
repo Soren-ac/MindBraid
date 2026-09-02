@@ -191,6 +191,7 @@ export function validateMindMapNodePresentation(
 		"rectangle",
 		"pill",
 		"ellipse",
+		"diamond",
 		"underline",
 		"none",
 	] as const);
