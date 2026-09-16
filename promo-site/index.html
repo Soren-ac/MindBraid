@@ -18,6 +18,47 @@
     <section class="obmind-install" id="install"><div class="obmind-install-inner obmind-reveal"><img src="./assets/readme/obmind-logo.svg" alt="" width="56" height="56"><p class="obmind-overline">NEXT IDEA, NEW PERSPECTIVE.</p><h2>下一份笔记，<br><em>试着展开来看。</em></h2><p>从 GitHub Releases 下载最新版本，将文件放入 Obsidian 的 <strong>.obsidian/plugins/obmind</strong> 文件夹后启用。</p><div class="obmind-hero-actions"><a class="obmind-button obmind-button-light" href="https://github.com/Soren-ac/MindBraid/releases" target="_blank" rel="noopener noreferrer">下载最新版本 <span>↗</span></a><a class="obmind-button obmind-button-ghost" href="https://github.com/Soren-ac/MindBraid" target="_blank" rel="noopener noreferrer">查看源代码</a></div><small>当前版本 0.1.4　·　适用于 Obsidian 1.7.2 及以上桌面版本</small></div></section>
   </main><footer class="obmind-footer"><a class="obmind-logo" href="#top"><img src="./assets/readme/obmind-logo.svg" alt="" width="26" height="26"><span>MindBraid</span></a><span>让笔记成为思考的另一种形状。</span><a href="https://github.com/Soren-ac/MindBraid" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer>
   <script>
-  (()=>{const scenes={structure:{image:'./assets/readme/markdown-to-map.png',alt:'Obsidian 中同一份 Markdown 与 MindBraid 脑图并排显示',title:'一份内容，两种思考方式。',description:'标题成为主题，嵌套列表成为分支。继续写作，脑图随当前笔记刷新。'},appearance:{image:'./assets/readme/showcase-appearance-panel.png',alt:'MindBraid 外观面板：独立的样式与配色选择，以及手绘脑图',title:'结构不变，表达可以不同。',description:'样式决定形状与笔触，配色决定颜色，布局决定展开方向。自由组合。'},present:{image:'./assets/presentation/presentation-speaker-spotlight.png',alt:'MindBraid 演示者界面中的聚光灯、计时与页面导航工具',title:'沿着思路，把故事讲出来。',description:'用快速演示临时讲解，或创建可保存的 Deck。播放过程不改写笔记。'}},tabs=[...document.querySelectorAll('.obmind-demo-tab')],panel=document.querySelector('#experience-panel'),image=document.querySelector('#scene-image');let generation=0;function selectTab(tab){const scene=scenes[tab.dataset.scene],current=++generation;tabs.forEach(t=>{const selected=t===tab;t.setAttribute('aria-selected',String(selected));t.tabIndex=selected?0:-1});panel.setAttribute('aria-labelledby',tab.id);panel.setAttribute('aria-busy','true');const preload=new Image();preload.onload=()=>{if(current!==generation)return;image.src=scene.image;image.alt=scene.alt;document.querySelector('#scene-title').textContent=scene.title;document.querySelector('#scene-description').textContent=scene.description;panel.setAttribute('aria-busy','false');panel.classList.remove('obmind-swapping');requestAnimationFrame(()=>current===generation&&panel.classList.add('obmind-swapping'))};preload.onerror=()=>{if(current===generation)panel.setAttribute('aria-busy','false')};preload.src=scene.image}tabs.forEach((tab,index)=>{tab.addEventListener('click',()=>selectTab(tab));tab.addEventListener('keydown',event=>{let next;if(event.key==='ArrowRight'||event.key==='ArrowDown')next=(index+1)%tabs.length;if(event.key==='ArrowLeft'||event.key==='ArrowUp')next=(index+tabs.length-1)%tabs.length;if(event.key==='Home')next=0;if(event.key==='End')next=tabs.length-1;if(next===undefined)return;event.preventDefault();tabs[next].focus();selectTab(tabs[next])})});if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('obmind-visible');observer.unobserve(e.target)}}),{threshold:.12});document.querySelectorAll('.obmind-reveal').forEach(el=>observer.observe(el))}else document.querySelectorAll('.obmind-reveal').forEach(el=>el.classList.add('obmind-visible'));const progress=document.querySelector('.obmind-progress'),nav=document.querySelector('.obmind-nav');let ticking=false;function onScroll(){const max=document.documentElement.scrollHeight-innerHeight;progress.style.transform='scaleX('+(max?scrollY/max:0)+')';nav.classList.toggle('obmind-nav-scrolled',scrollY>40);ticking=false}addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(onScroll)}},{passive:true});onScroll()})();
+  (()=>{
+    const scenes={
+      structure:{image:'./assets/readme/markdown-to-map.png',alt:'Obsidian 中同一份 Markdown 与 MindBraid 脑图并排显示',title:'一份内容，两种思考方式。',description:'标题成为主题，嵌套列表成为分支。继续写作，脑图随当前笔记刷新。'},
+      appearance:{image:'./assets/readme/showcase-appearance-panel.png',alt:'MindBraid 外观面板：独立的样式与配色选择，以及手绘脑图',title:'结构不变，表达可以不同。',description:'样式决定形状与笔触，配色决定颜色，布局决定展开方向。自由组合。'},
+      present:{image:'./assets/presentation/presentation-speaker-spotlight.png',alt:'MindBraid 演示者界面中的聚光灯、计时与页面导航工具',title:'沿着思路，把故事讲出来。',description:'用快速演示临时讲解，或创建可保存的 Deck。播放过程不改写笔记。'}
+    };
+    const tabs=[...document.querySelectorAll('.obmind-demo-tab')],panel=document.querySelector('#experience-panel'),image=document.querySelector('#scene-image'),title=document.querySelector('#scene-title'),description=document.querySelector('#scene-description');
+    let generation=0;
+    function selectTab(tab){
+      const scene=scenes[tab.dataset.scene],current=++generation;
+      tabs.forEach(t=>{const selected=t===tab;t.setAttribute('aria-selected',String(selected));t.tabIndex=selected?0:-1});
+      panel.setAttribute('aria-labelledby',tab.id);
+      panel.setAttribute('aria-busy','true');
+      image.dataset.scene=tab.dataset.scene;
+      image.src=scene.image;
+      image.alt=scene.alt;
+      title.textContent=scene.title;
+      description.textContent=scene.description;
+      panel.classList.remove('obmind-swapping');
+      requestAnimationFrame(()=>current===generation&&panel.classList.add('obmind-swapping'));
+      const preload=new Image();
+      preload.onload=()=>{if(current===generation)panel.setAttribute('aria-busy','false')};
+      preload.onerror=()=>{if(current===generation)panel.setAttribute('aria-busy','false')};
+      preload.src=scene.image;
+    }
+    tabs.forEach((tab,index)=>{
+      tab.addEventListener('click',()=>selectTab(tab));
+      tab.addEventListener('keydown',event=>{
+        let next;
+        if(event.key==='ArrowRight'||event.key==='ArrowDown')next=(index+1)%tabs.length;
+        if(event.key==='ArrowLeft'||event.key==='ArrowUp')next=(index+tabs.length-1)%tabs.length;
+        if(event.key==='Home')next=0;
+        if(event.key==='End')next=tabs.length-1;
+        if(next===undefined)return;
+        event.preventDefault();tabs[next].focus();selectTab(tabs[next]);
+      });
+    });
+    if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('obmind-visible');observer.unobserve(e.target)}}),{threshold:.12});document.querySelectorAll('.obmind-reveal').forEach(el=>observer.observe(el))}else document.querySelectorAll('.obmind-reveal').forEach(el=>el.classList.add('obmind-visible'));
+    const progress=document.querySelector('.obmind-progress'),nav=document.querySelector('.obmind-nav');let ticking=false;
+    function onScroll(){const max=document.documentElement.scrollHeight-innerHeight;progress.style.transform='scaleX('+(max?scrollY/max:0)+')';nav.classList.toggle('obmind-nav-scrolled',scrollY>40);ticking=false}
+    addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(onScroll)}},{passive:true});onScroll();
+  })();
   </script>
 </body></html>
