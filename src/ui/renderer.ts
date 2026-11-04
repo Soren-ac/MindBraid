@@ -2086,6 +2086,9 @@ export class DomSvgMindMapRenderer implements MindMapRenderer {
 							),
 						positionedRoot: rootPosition,
 						fallback: input.presentation.layout.orientation,
+						bilateral:
+							input.presentation.layout.engineId ===
+							BILATERAL_TREE_LAYOUT_ENGINE_ID,
 					}),
 				).connectionSide,
 			);

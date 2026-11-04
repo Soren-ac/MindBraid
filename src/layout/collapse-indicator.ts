@@ -42,6 +42,14 @@ export interface MindMapOutgoingOrientationRequest {
 	readonly visibleChildren: readonly PositionedNode[];
 	readonly positionedRoot: PositionedNode | undefined;
 	readonly fallback: LayoutOrientation;
+	/**
+	 * Whether the active layout engine splits root branches across both sides
+	 * (the bilateral tree engine). Only that engine's collapsed branches should
+	 * fall back to a root-relative side; a one-sided tree keeps every sibling on
+	 * the same configured orientation regardless of its horizontal or vertical
+	 * offset from the root.
+	 */
+	readonly bilateral: boolean;
 }
 
 export interface MindMapDisclosureAccessibleTextContext
@@ -188,9 +196,12 @@ export function resolveMindMapDisclosurePlacement(
 
 /**
  * Resolve a branch's effective direction from renderer-neutral layout
- * geometry. Visible child positions are authoritative; a collapsed bilateral
- * branch falls back to its side of the root, and the configured orientation is
- * used only when geometry is ambiguous.
+ * geometry. Visible child positions are authoritative for every engine. A
+ * collapsed branch with no visible children falls back to its side of the
+ * root only when `request.bilateral` is true, since that root-relative split
+ * is meaningful solely for the bilateral tree engine; a one-sided tree always
+ * keeps the configured orientation for every sibling, regardless of how far
+ * it sits from the root on the secondary axis.
  */
 export function resolveMindMapOutgoingOrientation(
 	request: MindMapOutgoingOrientationRequest,
@@ -217,6 +228,7 @@ export function resolveMindMapOutgoingOrientation(
 	}
 
 	if (
+		request.bilateral &&
 		request.node.kind !== "root" &&
 		request.positionedRoot !== undefined
 	) {

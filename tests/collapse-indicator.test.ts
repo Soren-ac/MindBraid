@@ -242,6 +242,7 @@ describe("mind-map disclosure placement", () => {
 				visibleChildren: [positionNode(child, 40, 200)],
 				positionedRoot: positionNode(parent, 200, 200),
 				fallback: "left-to-right",
+				bilateral: false,
 			}),
 		).toBe("right-to-left");
 	});
@@ -259,6 +260,7 @@ describe("mind-map disclosure placement", () => {
 				visibleChildren: [],
 				positionedRoot,
 				fallback: "left-to-right",
+				bilateral: true,
 			}),
 		).toBe("right-to-left");
 		expect(
@@ -268,6 +270,39 @@ describe("mind-map disclosure placement", () => {
 				"left-to-right",
 			),
 		).toBe("right-to-left");
+	});
+
+	it("keeps every one-sided sibling on the configured orientation regardless of root offset", () => {
+		// Regression test: a one-sided (non-bilateral) tree spreads siblings
+		// widely on the secondary axis beneath/beside the root. A collapsed
+		// sibling far from the root's center must not flip to a side
+		// connection just because its horizontal offset exceeds the primary
+		// gap; every sibling should keep the same configured orientation.
+		const root = makeNode("root");
+		const nearCenterSibling = makeHeading("near-center");
+		const farSideSibling = makeHeading("far-side");
+		const positionedRoot = positionNode(root, 700, 100);
+
+		expect(
+			resolveMindMapOutgoingOrientation({
+				node: nearCenterSibling,
+				positionedNode: positionNode(nearCenterSibling, 650, 250),
+				visibleChildren: [],
+				positionedRoot,
+				fallback: "top-to-bottom",
+				bilateral: false,
+			}),
+		).toBe("top-to-bottom");
+		expect(
+			resolveMindMapOutgoingOrientation({
+				node: farSideSibling,
+				positionedNode: positionNode(farSideSibling, 150, 250),
+				visibleChildren: [],
+				positionedRoot,
+				fallback: "top-to-bottom",
+				bilateral: false,
+			}),
+		).toBe("top-to-bottom");
 	});
 
 	it("resolves vertical split branches and preserves the root fallback", () => {
